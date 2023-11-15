@@ -1,0 +1,16 @@
+# Danmakufu gitignore - by Kirbio
+
+# Data/Save File
+*.dat
+
+# Backup
+*.bak
+
+# Older stuff
+*_old
+
+#Photoshop Files
+*.psd
+
+# Draft folder
+draft/*
