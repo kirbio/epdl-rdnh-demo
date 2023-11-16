@@ -1,0 +1,29 @@
+let RT_HUDRENDER = "tHUD";
+
+let pathShader= GetCurrentScriptDirectory() ~ "../lib/shader/alphareset.txt";
+
+task HUD_RenderTrueWideScreen(){
+	
+	CreateRenderTargetB(RT_HUDRENDER, 1708, 960);
+	
+	SetInvalidRenderPriorityA1(0, 98);
+	
+	let obj = ObjPrim_Create(OBJ_SPRITE_2D);
+	ObjPrim_SetTexture(obj, RT_HUDRENDER);
+	ObjRender_SetBlendType(obj, BLEND_ALPHA);
+	
+	ObjSprite2D_SetSourceRect(obj, 0, 0, 1708, 960);
+	ObjSprite2D_SetDestRect(obj, 0, 0, 1920, 1080);
+	
+	Obj_SetRenderPriorityI(obj, 100);
+	ObjShader_SetShaderF(obj,pathShader);
+	ObjShader_SetTechnique(obj,"TecShad");
+	//ObjRender_SetX(obj, 0);
+	
+	loop{
+		RenderToTextureA1(RT_HUDRENDER, 0, 98, true);
+		//SetInvalidRenderPriorityA1(RP_HUD, RP_HUD);
+		yield;
+	}
+	
+}

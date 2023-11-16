@@ -1,0 +1,132 @@
+#TouhouDanmakufu[Stage]
+#ScriptVersion[3]
+#Title["Test"]
+#Text["test"]
+//Background["./../bg/stage01.dnh"]
+#Player["./player/pl00.dnh"]
+#System["./system/Default_System.dnh"]
+
+#include "./lib/lib_file.dnh"
+#include "./lib/lib_vm.dnh"
+#include "./lib/lib_ui.dnh"
+
+@Initialize
+{	
+	InitUI();
+	ParseAllFile();
+	InitPatternSelector();
+}
+
+@MainLoop
+{
+	yield;
+
+}
+
+@Event{
+
+}
+
+let imgEnemy = GetCurrentScriptDirectory()~"img/stage/enemy.png";
+
+function CreateEnemyObject(x, y, life){
+	let obj = ObjEnemy_Create(OBJ_ENEMY);
+	ObjEnemy_SetLife(obj, life);
+	
+	Obj_SetRenderPriorityI(obj,40);
+	ObjPrim_SetTexture(obj, imgEnemy);
+	ObjSprite2D_SetSourceRect(obj, 0, 0, 64, 64);
+	ObjSprite2D_SetDestCenter(obj);
+	ObjRender_SetScaleXYZ(obj, 0.5, 0.5, 0);
+	
+	ObjEnemy_Regist(obj);
+	
+	ObjMove_SetPosition(obj, x, y);
+	
+	//WriteLog(imgEnemy);
+	
+	Handle();
+	
+	task Handle(){
+	
+		let px;
+		let py;
+	
+		while(ObjEnemy_GetInfo(obj, INFO_LIFE)>0){
+		
+			px = ObjMove_GetX(obj);
+			py = ObjMove_GetY(obj);
+		
+			ObjEnemy_SetIntersectionCircleToShot(obj, px, py, 2);
+			
+			if(px<-64 || px>448 || py<-64 || py > 512){break;}
+			yield;
+		}
+		Obj_Delete(obj);
+	}
+	
+	
+	return obj;
+}
+
+task SpawnEnemy(x, y, patternID){
+	let objEnemy = CreateEnemyObject(x, y, 10);
+	VM_Execute(ENM_BYTECODE[patternID][0], objEnemy);
+}
+
+
+//==============ByteCode Handling=====================
+
+let ENM_BYTECODE = []; //List of ALL enemy bytecode
+let PATTERNLIST_NAME;
+
+task ParseAllFile(){
+	yield;
+	PATTERNLIST_NAME = GetAllAvailablePatternList();
+	
+	if(length(PATTERNLIST_NAME)<=0){
+		RaiseError("There is no pattern to pase");
+	}
+	
+	let fileString;
+	let byteCodes;
+	ascent(i in 0..length(PATTERNLIST_NAME)){
+		fileString = ParseFile(PATTERNLIST_NAME[i]);
+		byteCodes = Parser_Main(fileString);
+		
+		ENM_BYTECODE = ENM_BYTECODE~[byteCodes];
+	}
+	
+	MAX_PATTERN_COUNT = length(PATTERNLIST_NAME);
+}
+
+//================Pattern Selector====================
+let MAX_PATTERN_COUNT = -1;
+let currentPatternID = 0;
+
+task InitPatternSelector(){
+	wait(2);
+	UpdateFileName(0);
+	while(true){
+		if(GetKeyState(KEY_U)==KEY_PUSH){
+			currentPatternID-=1;
+			if(currentPatternID<0){
+				currentPatternID+=MAX_PATTERN_COUNT;
+			}
+			UpdateFileName(currentPatternID);
+		}else if(GetKeyState(KEY_I)==KEY_PUSH){
+			currentPatternID+=1;
+			if(currentPatternID>=MAX_PATTERN_COUNT){
+				currentPatternID-=MAX_PATTERN_COUNT;
+			}
+			UpdateFileName(currentPatternID);
+		}else if(GetKeyState(KEY_K)==KEY_PUSH){
+			SpawnEnemy(192, 0, currentPatternID);
+		}
+		yield;
+	}
+}
+
+task UpdateFileName(id){
+	ObjText_SetText(objFileName, PATTERNLIST_NAME[currentPatternID]);
+}

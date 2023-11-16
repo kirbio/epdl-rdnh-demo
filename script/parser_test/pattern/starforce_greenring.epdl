@@ -1,0 +1,13 @@
+move_straight(3, 90)
+while(SELF_Y<PLAYER_Y){
+	wait(1)
+}
+if(SELF_X<PLAYER_X){
+	move_straight(8, 290)
+}else{
+	move_straight(8, 250)
+}
+while(SELF_Y>0){
+	wait(1)
+}
+move_straight(3, 90)

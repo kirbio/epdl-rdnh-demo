@@ -1,0 +1,743 @@
+#include"../lib/EV_const.dnh"
+
+let imgPause00 = GetCurrentScriptDirectory ~ "./../img/menu/"~PickLanguage("pause00.png","pause00_jp.png");
+let imgPause01 = GetCurrentScriptDirectory ~ "./../img/menu/"~PickLanguage("pause01.png","pause01_jp.png");
+
+@Initialize
+{
+	SetAutoDeleteObject(true);
+	//TBackground();
+	TContinueMenu;
+}
+
+@MainLoop
+{
+	yield;
+}
+
+@Finalize
+{
+}
+
+task PlayGameOverMusic{
+	yield;
+	PlayMusicA1(15,100);
+}
+
+let MENU_NAME_ENTRY = 0;
+let MENU_SELECT = 1;
+let MENU_CONFIRM = 2;
+let MENU_REPLAY = 3;
+
+let menuMode = MENU_NAME_ENTRY;
+
+let rank = GetScoreRank(GetScore);
+
+task TContinueMenu{
+	if(GetGameMode==GMODE_NORMAL&&rank>=0&&!IsReplay){
+		TNameEntry;
+	}else{
+		menuMode = MENU_SELECT;
+	}
+	while(menuMode==MENU_NAME_ENTRY){
+		yield;
+	}
+	CloseScript(GetOwnScriptID());
+}
+
+let pathShader= GetCurrentScriptDirectory() ~ "../lib/shader/alphareset.txt";
+task TBackground
+{	task TVertex(var index, var left, var top, var right, var bottom)
+	{
+		ObjPrim_SetVertexPosition(obj, index + 0, left, top, 0);
+		ObjPrim_SetVertexPosition(obj, index + 1, left, bottom, 0);
+		ObjPrim_SetVertexPosition(obj, index + 2, right, top, 0);
+		ObjPrim_SetVertexPosition(obj, index + 3, right, top, 0);
+		ObjPrim_SetVertexPosition(obj, index + 4, left, bottom, 0);
+		ObjPrim_SetVertexPosition(obj, index + 5, right, bottom, 0);
+
+		ObjPrim_SetVertexUVT(obj, index + 0, left, top);
+		ObjPrim_SetVertexUVT(obj, index + 1, left, bottom);
+		ObjPrim_SetVertexUVT(obj, index + 2, right, top);
+		ObjPrim_SetVertexUVT(obj, index + 3, right, top);
+		ObjPrim_SetVertexUVT(obj, index + 4, left, bottom);
+		ObjPrim_SetVertexUVT(obj, index + 5, right, bottom);
+
+		//STGシーン内のみアニメーション
+		if(!GetCommonData("ExpandField", false)){
+			if(left >= 32 && right <= 416 && top >=16 && bottom <= 464)
+			{
+				ObjPrim_SetVertexColor(obj, index + 0, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 1, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 2, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 3, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 4, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 5, 30,30,30);
+			}
+		}else{
+			if(left >= 0 && right <= 640 && top >=0 && bottom <= 480)
+			{
+				ObjPrim_SetVertexColor(obj, index + 0, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 1, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 2, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 3, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 4, 30,30,30);
+				ObjPrim_SetVertexColor(obj, index + 5, 30,30,30);
+			}
+		}
+		
+	}
+
+	//分割設定
+	let frame = 30;
+	let countH = 20; //分割数
+	let countV = 30; 
+	let width = 640 / countH;
+	let height = 480 / countV;
+	let target = GetTransitionRenderTargetName();
+	let obj = ObjPrim_Create(OBJ_PRIMITIVE_2D); //2D頂点ブジェクト生成
+	ObjPrim_SetPrimitiveType(obj, PRIMITIVE_TRIANGLELIST);
+	ObjPrim_SetVertexCount(obj, countH * countV * 6);
+	Obj_SetRenderPriorityI(obj, 0); //描画優先度を設定
+	ObjPrim_SetTexture(obj, target); //テクスチャを設定
+	ObjShader_SetShaderF(obj,pathShader);
+	ObjShader_SetTechnique(obj,"TecShad");
+	
+	ascent(ix in 0.. countH)
+	{
+		ascent(iy in 0.. countV)
+		{
+			let index = (ix + iy * countH) * 6;
+			let left = ix * width;
+			let right = left + width;
+			let top = iy * height;
+			let bottom = top + height;
+			TVertex(index, left, top, right, bottom);
+		}
+	}
+}
+
+task TMenu2
+{
+	
+
+
+	//Intiallize Variables
+	let mx = 135;
+	let my = 324;
+	let title = CreateEffectObject(mx-30, my-70,imgPause01,"ALPHA",0,32,128,64);
+	FadeOutControl(title);
+	SetBG( mx, my );
+	let texts = ["leave","savereplay","retry"];
+	var countMenu = length(texts);
+	ascent(var iText in 0 .. countMenu)
+	{
+		TMenuItem(iText,mx+36+53, my-24, texts[iText]);
+		my += 32;
+	}
+
+	//Safeguard for lingering VK status
+	while(GetVirtualKeyState(VK_PAUSE) != KEY_FREE){yield;}
+	while(GetVirtualKeyState(VK_OK) != KEY_FREE){yield;}
+
+	//Keyboard Checking
+	let frameKeyHold = 0;//For Key Holding
+	loop
+	{
+		if(GetVirtualKeyState(VK_OK) == KEY_PUSH)
+		{
+			/*if (selectIndex!=2){
+			let listResult = [RESULT_CANCEL, RESULT_END,0, RESULT_RETRY];
+			SetScriptResult(listResult[selectIndex]);
+			CloseScript(GetOwnScriptID());
+			return;
+		}*/
+			if(menuMode == MENU_SELECT){
+				
+				alternative(selectIndex)
+				case(0,2){ //Proceed to Menu#2
+					PlaySoundA1("ok",100,0);
+					menuMode = MENU_CONFIRM;
+					selectIndex2 = 1;
+					TConfirmMenu; //Show Menu
+				}
+				case(1){ //Replay Save
+					if(!IsContinue){
+						PlaySoundA1("ok",100,0);
+						SetScriptResult(RESULT_SAVE_REPLAY);
+						CloseScript(GetOwnScriptID());
+					}else{
+						PlaySoundA1("invalid",100,0);
+					}
+				}
+			}else if(menuMode == MENU_CONFIRM){
+				if(selectIndex2==0){
+					PlaySoundA1("ok",100,0);
+					SetScriptResult([RESULT_END,RESULT_RETRY][selectIndex!=0]);
+					StopMusic();
+					SetCommonData("Menu",false);
+					CloseScript(GetOwnScriptID());
+				}else{
+					PlaySoundA1("cancle",100,0);
+					menuMode = MENU_SELECT;
+				}
+				
+			}
+			
+			
+		}
+
+		if(GetVirtualKeyState(VK_CANCEL) == KEY_PUSH||GetVirtualKeyState(VK_PAUSE) == KEY_PUSH)
+		{
+			if(menuMode == MENU_CONFIRM){
+				if(selectIndex2==0){
+					selectIndex2=1;
+				}else{
+					menuMode = MENU_SELECT;
+				}
+				
+			}else{
+				selectIndex = 0;
+			}
+			
+			PlaySoundA1("cancle",100,0);
+		}
+
+		//カーソル移動
+		if(GetVirtualKeyState(VK_UP) == KEY_PUSH)
+		{
+			if(menuMode == MENU_SELECT){
+				selectIndex--;
+			}else if(menuMode == MENU_CONFIRM){
+				selectIndex2--;
+			}
+			PlaySoundA1("select",100,0);
+		}
+		else if(GetVirtualKeyState(VK_DOWN) == KEY_PUSH)
+		{
+			if(menuMode == MENU_SELECT){
+				selectIndex++;
+			}else if(menuMode == MENU_CONFIRM){
+				selectIndex2++;
+			}
+			PlaySoundA1("select",100,0);
+		}
+		else if(GetVirtualKeyState(VK_UP) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(frameKeyHold == 30 || (frameKeyHold > 30 && (frameKeyHold % 10 == 0)))
+			{
+				if(menuMode == MENU_SELECT){
+					selectIndex--;
+				}else if(menuMode == MENU_CONFIRM){
+					selectIndex2--;
+				}
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else if(GetVirtualKeyState(VK_DOWN) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(frameKeyHold == 30 || (frameKeyHold > 30 && (frameKeyHold % 10 == 0)))
+			{
+				if(menuMode == MENU_SELECT){
+					selectIndex++;
+				}else if(menuMode == MENU_CONFIRM){
+					selectIndex2++;
+				}
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else
+		{
+			frameKeyHold = 0;
+		}
+
+		if(selectIndex < 0) 
+		{
+			selectIndex = countMenu - 1;
+		}
+		else
+		{
+			selectIndex %= countMenu;
+		}
+		
+		if(selectIndex2 < 0) 
+		{
+			selectIndex2 = 1;
+		}
+		else
+		{
+			selectIndex2 %= 2;
+		}
+
+		yield;
+	}
+}
+
+task TConfirmMenu{ //Show the Confirmation Menu
+	let mx = 268;
+	let my = 360;
+	let title = CreateEffectObject(mx+50, my-70,imgPause00,"ALPHA",0,160,150,192);
+	TitleControl(title);
+	let texts = ["yes", "no"];
+	var countMenu = length(texts);
+	ascent(var iText in 0 .. countMenu)
+	{
+		TMenuItem2(iText,mx+36, my-32, texts[iText]);
+		my += 32;
+	}
+	
+	task TitleControl(obj){
+		ascent(i in 0..11){
+			ObjRender_SetY(obj, my-140+10*sin(i*90/11));
+			ObjRender_SetAlpha(obj,i*255/10);
+			yield;
+		}
+		while(menuMode==MENU_CONFIRM){
+			yield;
+		}
+		descent(i in 0..11){
+			ObjRender_SetAlpha(obj,i*255/10);
+			yield;
+		}
+		Obj_Delete(obj);
+	}
+}
+
+task TReplaySaveMenu{ //Replay Saving Menu
+	let scrReplaySave = GetCurrentScriptDirectory~"./Default_ReplaySave.dnh"; //Replay Save File Location
+	//SetCommonData("TEST2",scrReplaySave);
+	StartScript(LoadScript(scrReplaySave)); //Start Replay Saving Script
+	while(!IsCloseScript(scrReplaySave)){
+		yield;
+	}
+}
+
+task SetBG( mx, my ){
+	let pathMenu = GetCurrentScriptDirectory ~ "./../img/menu/pause02.png";
+	let obj = CreateEffectObject(mx-24,my,pathMenu,"ALPHA",0, 0, 256, 256);
+	Obj_SetRenderPriorityI(obj, 81 );
+	Swing;
+	Posit;
+	task Swing{
+		let f = 0;
+		loop{
+			ObjRender_SetAngleZ(obj,-3+3*sin(f*2));
+			f++;
+			yield;
+		}
+	}
+
+	task Posit{
+		ObjRender_SetColor(obj,50,150,120);
+		loop{
+			while(menuMode==MENU_SELECT){
+				yield;
+			}
+			ascent(i in 0..9){
+				ObjRender_SetX(obj,mx-24+185*i/8);
+				ObjRender_SetColor(obj,50+i*205/8,150-i*150/8,120-i*120/8);
+				yield;
+			}
+			while(menuMode==MENU_CONFIRM){
+				yield;
+			}
+			descent(i in 0..9){
+				ObjRender_SetX(obj,mx-24+185*i/8);
+				ObjRender_SetColor(obj,50+i*205/8,150-i*150/8,120-i*120/8);
+				yield;
+			}
+		}
+	}
+
+}
+
+function CreateEffectObject(px,py,img,blendtype,left,top,right,bottom){
+	let obj=ObjPrim_Create(OBJ_SPRITE_2D);
+	LoadTexture(img);
+	ObjPrim_SetTexture(obj,img);
+	ObjSprite2D_SetSourceRect(obj,left,top,right,bottom);
+	ObjSprite2D_SetDestCenter(obj);
+	Obj_SetRenderPriorityI(obj, 82 );
+	if(blendtype=="ALPHA"){
+		ObjRender_SetBlendType(obj,BLEND_ALPHA);
+	}
+	if(blendtype=="RGB"){
+		ObjRender_SetBlendType(obj,BLEND_ADD_RGB);
+	}
+	if(blendtype=="ARGB"){
+		ObjRender_SetBlendType(obj,BLEND_ADD_ARGB);
+	}
+	ObjRender_SetPosition(obj,px,py,0);
+	return obj;
+}
+
+let selectIndex = 0;//Main Menu selectIndex
+let selectIndex2 = 0;//Confirm Menu Index
+task TMenuItem(let index, let mx, let my, let text)
+{
+	let move1	= 0;
+	let moveA	= 0;
+	let move2	= 0;
+	let moveB	= 0;
+	let menuorder;
+	let xshift = 0;
+	
+	alternative(text)
+	case("resume"){
+		menuorder = 1;
+	}
+	case("leave"){
+		menuorder = 2;
+	}
+	case("savereplay"){
+		menuorder = 6;
+		//xshift = 64;
+	}
+	case("retry"){
+		if(IsReplay){
+			menuorder = 4;
+		}else{
+			menuorder = 3;
+		}
+	}
+
+	let objText = CreateEffectObject(mx-xshift/2, my,imgPause00,"ALPHA",0,32*(menuorder),256-xshift,32*(menuorder+1));//CreateTextObject(mx, my, text);
+	FadeOutControl(objText);
+	while(true)
+	{
+		if(index == selectIndex){
+			Shake(objText);
+			if(IsContinue&&text=="savereplay"){
+				ObjRender_SetColor(objText,255,80,80);
+			}else{
+				Blink(objText,index);
+			}
+		}else{
+			ObjRender_SetColor(objText,52,49,49);
+		}
+		//Obj_SetVisible(objSelect, index == selectIndex);
+		while(index == selectIndex){
+			yield;
+		}
+		yield;
+	}
+	Obj_Delete(objText);
+	
+	task Shake(objText){
+		descent(i in 0..10){
+			ObjRender_SetPosition(objText,mx-3*sin(i*720/10)-xshift/2,my,0);
+			yield;
+		}
+	}
+	
+	task Blink(obj,index){
+		let c = 0;
+		while(index == selectIndex){
+			if(menuMode == MENU_SELECT){
+				ObjRender_SetColor(obj,255,192.5+62.5*sin(c*360/60),192.5+62.5*sin(c*360/60));
+			}else{
+				ObjRender_SetColor(obj,255,255,255);
+			}
+			c++;
+			yield;
+		}
+	}
+}
+
+task TMenuItem2(let index, let mx, let my, let text) //For Select Menu
+{
+	let move1	= 0;
+	let moveA	= 0;
+	let move2	= 0;
+	let moveB	= 0;
+	let menuorder;
+	let xshift = 0;
+	
+	alternative(text)
+	case("yes"){
+		menuorder = 0;
+	}
+	case("no"){
+		menuorder = 1;
+	}
+
+	let objText = CreateEffectObject(mx-xshift/2, my,imgPause00,"ALPHA",128+64*(menuorder),224,128+64*(menuorder+1),256);//CreateTextObject(mx, my, text);
+	while(menuMode == MENU_CONFIRM)
+	{
+		if(index == selectIndex2){
+			Shake(objText);
+			Blink(objText,index);
+		}else{
+			ObjRender_SetColor(objText,52,49,49);
+		}
+		//Obj_SetVisible(objSelect, index == selectIndex);
+		while(index == selectIndex2&&menuMode == MENU_CONFIRM){
+			yield;
+		}
+		yield;
+	}
+	Obj_Delete(objText);
+	
+	task Shake(objText){
+		descent(i in 0..10){
+			ObjRender_SetPosition(objText,mx-3*sin(i*720/10)-xshift/2,my,0);
+			yield;
+		}
+	}
+	
+	task Blink(obj,index){
+		let c = 0;
+		while(index == selectIndex2){
+			ObjRender_SetColor(obj,255,192.5+62.5*sin(c*360/60),192.5+62.5*sin(c*360/60));
+			c++;
+			yield;
+		}
+	}
+}
+
+task FadeOutControl(obj){
+	loop{
+		while(menuMode == MENU_SELECT){
+			yield;
+		}
+		descent(i in 0..11){
+			ObjRender_SetAlpha(obj,80+175*sin(i*90/10));
+			yield;
+		}
+		while(menuMode == MENU_CONFIRM){
+			yield;
+		}
+		ascent(i in 0..11){
+			ObjRender_SetAlpha(obj,80+175*sin(i*90/10));
+			yield;
+		}
+	}
+}
+
+task TNameEntry //Returns: Name string
+{
+	let strTextIn = 
+	[
+	["A","B","C","D","E","F","G","H","I","J","K","L","M"],
+	["N","O","P","Q","R","S","T","U","V","W","X","Y","Z"],
+	["a","b","c","d","e","f","g","h","i","j","k","l","m"],
+	["n","o","p","q","r","s","t","u","v","w","x","y","z"],
+	["0","1","2","3","4","5","6","7","8","9","+","-","="],
+	[".",",","!","?","@",":",";","[","]","(",")","_","/"],
+	["{","}","|","~","**","#","%","&","$","*"," "," ","終"]
+	];
+
+	let strTextView = 
+	[
+	["A","B","C","D","E","F","G","H","I","J","K","L","M"],
+	["N","O","P","Q","R","S","T","U","V","W","X","Y","Z"],
+	["a","b","c","d","e","f","g","h","i","j","k","l","m"],
+	["n","o","p","q","r","s","t","u","v","w","x","y","z"],
+	["0","1","2","3","4","5","6","7","8","9","+","-","="],
+	[".",",","!","?","@",":",";","[","]","(",")","_","/"],
+	["{","}","|","~","**","#","%","&","$","*"," ","<-","Done"]
+	];
+
+	let cursorX = 0;
+	let cursorY = 0;
+	let maxCursorX = length(strTextIn[0]);
+	let maxCursorY = length(strTextIn);
+
+	task TMenuItem(let itemX, let itemY)
+	{
+		let objText = CreateTextObject(168 + itemX * 24, 240 -32 + itemY * 24, 15, strTextView[itemY][itemX]);
+		//let objSelect = CreateTextObject(120 + itemX * 24, 200 + itemY * 24, 22, strTextView[itemY][itemX]);
+		//ObjRender_SetBlendType(objSelect, BLEND_ADD_RGB);
+
+		while(menuMode == MENU_NAME_ENTRY)
+		{
+			//Obj_SetVisible(objSelect, itemX == cursorX && itemY == cursorY);
+			if(itemX == cursorX && itemY == cursorY){
+				ObjRender_SetAlpha(objText,255);
+			}else{
+				ObjRender_SetAlpha(objText,125);
+			}
+			yield;
+		}
+		Obj_Delete(objText);
+		//Obj_Delete(objSelect);
+	}
+
+	ascent(let iY in 0..maxCursorY)
+	{
+		ascent(let iX in 0 .. maxCursorX)
+		{
+			TMenuItem(iX, iY);
+		}
+	}
+
+	//キー状態がリセットされるまで待機
+	while(GetVirtualKeyState(VK_OK) != KEY_FREE){yield;}
+
+	//入力済み文字
+	let userName = "";
+	let objName = CreateTextObject(240, 180-32, 24, "");
+	task TNameCursor()
+	{
+		let objCursor = CreateTextObject(0, 180-32, 24, "_");
+		while(menuMode == MENU_NAME_ENTRY)
+		{
+			let nameLength = length(userName);
+			ObjRender_SetX(objCursor, 240 + nameLength * 17);
+			Obj_SetVisible(objCursor, nameLength < 10);
+			yield;
+		}
+		Obj_Delete(objCursor);
+	}
+	TNameCursor;
+
+	//キー処理
+	let frameKeyHold = 0;//キー押しっぱなしフレーム数
+	while(menuMode == MENU_NAME_ENTRY)
+	{
+		
+		if(GetVirtualKeyState(VK_OK) == KEY_PUSH)
+		{
+			//決定
+			let nameLength = length(userName);
+			if(cursorX>maxCursorX-3 &&cursorY == maxCursorY-1)
+			{
+				if (cursorX == maxCursorX-1){
+					//Done
+					PlaySoundA1("ok",100,0);
+					if(nameLength == 0)
+					{
+						userName = "No Name";
+					}
+					else
+					{
+						while(length(userName)<10){
+							userName = userName~" ";
+						}
+						UpdatePlayerData(rank,userName,vtos("11d", GetScore),GetDateTimeStr,vtos("1d",GetStageID));
+						SavePlayerDataFile;
+						menuMode = MENU_SELECT;
+						//return;
+					}
+				}else if(cursorX == maxCursorX-2){
+					//Erase Button
+					if(nameLength > 0)
+					{
+						userName = userName[0..nameLength-1];
+					}
+					PlaySoundA1("cancle",100,0);
+				}
+			}
+			else if(nameLength < 10)
+			{
+				PlaySoundA1("ok",100,0);
+				userName = userName ~ strTextIn[cursorY][cursorX];
+			}
+		}
+		if(GetVirtualKeyState(VK_CANCEL) == KEY_PUSH)
+		{
+			//キャンセル
+			let nameLength = length(userName);
+			if(nameLength > 0)
+			{
+				userName = userName[0..nameLength-1];
+			}
+			PlaySoundA1("cancle",100,0);
+		}
+		ObjText_SetText(objName, userName);
+
+		//カーソル移動
+		if(GetVirtualKeyState(VK_UP) == KEY_PUSH || GetVirtualKeyState(VK_UP) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(GetVirtualKeyState(VK_UP) == KEY_PUSH ||
+					frameKeyHold == 20 ||
+					(frameKeyHold > 20 && (frameKeyHold % 10 == 0)))
+			{
+				cursorY--;
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else if(GetVirtualKeyState(VK_DOWN) == KEY_PUSH || GetVirtualKeyState(VK_DOWN) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(GetVirtualKeyState(VK_DOWN) == KEY_PUSH ||
+					frameKeyHold == 20 ||
+					(frameKeyHold > 20 && (frameKeyHold % 10 == 0)))
+			{
+				cursorY++;
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else if(GetVirtualKeyState(VK_LEFT) == KEY_PUSH || GetVirtualKeyState(VK_LEFT) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(GetVirtualKeyState(VK_LEFT) == KEY_PUSH ||
+					frameKeyHold == 20 ||
+					(frameKeyHold > 20 && (frameKeyHold % 10 == 0)))
+			{
+				cursorX--;
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else if(GetVirtualKeyState(VK_RIGHT) == KEY_PUSH || GetVirtualKeyState(VK_RIGHT) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(GetVirtualKeyState(VK_RIGHT) == KEY_PUSH ||
+					frameKeyHold == 20 ||
+					(frameKeyHold > 20 && (frameKeyHold % 10 == 0)))
+			{
+				cursorX++;
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else
+		{
+			frameKeyHold = 0;
+		}
+
+		if(cursorX < 0)
+		{
+			cursorX = maxCursorX-1;
+		}
+		else if(cursorX >= maxCursorX)
+		{
+			cursorX = 0;
+		}
+
+		if(cursorY < 0)
+		{
+			cursorY = maxCursorY-1;
+		}
+		else if(cursorY >= maxCursorY)
+		{
+			cursorY = 0;
+		}
+
+		yield;
+	}
+	Obj_Delete(objName);
+}
+
+function CreateTextObject(let mx, let my, let size, let text)
+{
+	let obj = ObjText_Create();
+	ObjText_SetText(obj, text);
+	ObjText_SetFontSize(obj, size);
+	ObjText_SetFontBold(obj, true);
+	ObjText_SetFontType(obj,"Lucida Console");
+	ObjText_SetFontColorTop(obj, 255,255, 255);
+	ObjText_SetFontColorBottom(obj, 255,255, 255);
+	ObjText_SetFontBorderType(obj, BORDER_FULL);
+	ObjText_SetFontBorderColor(obj,0, 0, 0);
+	ObjText_SetFontBorderWidth(obj, 2);
+	Obj_SetRenderPriorityI(obj, 30);
+	ObjRender_SetX(obj, mx);
+	ObjRender_SetY(obj, my);
+	ObjText_SetSyntacticAnalysis(obj,false);
+	return obj;
+}
+
+

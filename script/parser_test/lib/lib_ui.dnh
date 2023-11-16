@@ -1,0 +1,31 @@
+
+let objFileName = ID_INVALID;
+let objCurrentMovement = ID_INVALID;
+
+let FONT_MENU = "Noto Sans JP";
+let FONT_MENU_URL = GetCurrentScriptDirectory~"./../font/notosans-jp-bold.otf";
+
+task InitUI(){
+	let header = CreateUITextObject(128, 80);
+	ObjText_SetText(header, "Current File");
+	
+	objFileName = CreateUITextObject(128, 120);
+	ObjText_SetText(objFileName, "FileName.epdl");
+}
+
+function CreateUITextObject(x, y){
+	let objText = ObjText_Create();
+	ObjText_SetFontType(objText, FONT_MENU );
+	ObjText_SetFontSize(objText, 24);
+	//ObjText_SetFontBold(objText, true);
+	ObjText_SetFontColorTop(objText, 255, 255, 255);
+	ObjText_SetFontColorBottom(objText, 255, 255, 255);
+	ObjText_SetFontBorderType(objText, BORDER_FULL);
+	ObjText_SetFontBorderColor(objText,0, 0, 0);
+	ObjText_SetFontBorderWidth(objText, 4);
+	ObjText_SetHorizontalAlignment(objText, ALIGNMENT_CENTER);
+	ObjText_SetMaxWidth(objText, 256);
+	Obj_SetRenderPriority(objText, 1.0);
+	ObjRender_SetXY(objText, x-128, y);
+	return objText;
+}

@@ -1,0 +1,114 @@
+// =======================================================================
+// Token
+// =======================================================================
+
+let TK_END = iota(0);
+let TK_INVALID = iota;
+let TK_WORD = iota;
+let TK_REAL = iota;
+let TK_BOOL = iota;
+
+let TK_OPEN_PAR = iota;
+let TK_CLOSE_PAR = iota;
+
+let TK_OPEN_BRACE = iota;
+let TK_CLOSE_BRACE = iota;
+
+let TK_SEMICOLON = iota;
+let TK_COMMA = iota;
+
+let TK_PLUS = iota;
+let TK_MINUS = iota;
+let TK_ASTERISK = iota;
+let TK_SLASH = iota;
+let TK_POW = iota;
+let TK_MOD = iota;
+
+let TK_AND = iota;
+let TK_OR = iota;
+let TK_NOT = iota;
+
+let TK_EQUAL = iota;
+let TK_INEQUAL = iota;
+let TK_GREATER = iota;
+let TK_LESSER = iota;
+let TK_GREATER_EQ = iota;
+let TK_LESSER_EQ = iota;
+
+let TK_LET = iota;
+let TK_VARIABLE = iota;
+let TK_ASSIGNMENT = iota;
+
+let TK_IF = iota;
+let TK_ELIF = iota;
+let TK_ELSE = iota;
+let TK_WHILE = iota;
+
+// keywords
+let TK_PRINT = iota;
+
+let TK_SIN = iota;
+let TK_COS = iota;
+let TK_TAN = iota;
+
+let TK_RAND = iota;
+
+// epdl functions
+let TK_EPDL_FUNC = iota;
+let TK_EPDL_PROP = iota; //Separated from function because it is treated like atomic clause
+
+let _g_tokenNames = [
+	"(EOF)",
+	"(INVALID)",
+	"identifier",
+	"real",
+	"boolean",
+	
+	"(",
+	")",
+	
+	"{",
+	"}",
+	
+	";",
+	",",
+	
+	"+",
+	"-",
+	"*",
+	"/",
+	"^",
+	"%",
+	
+	"&&",
+	"||",
+	"!",
+	
+	"=",
+	"!=",
+	">",
+	"<",
+	">=",
+	"<=",
+	
+	"let",
+	"variable",
+	"==",
+	
+	"if",
+	"elif",
+	"else",
+	"while",
+	
+	
+	"print",
+	
+	"sin",
+	"cos",
+	"tan",
+	
+	"rand",
+	
+	"EPDL Function",
+	"EPDL Object Property",
+];

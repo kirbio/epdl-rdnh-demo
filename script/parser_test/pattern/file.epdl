@@ -1,0 +1,36 @@
+move_sinewave(1, 0, 30, 4)
+wait(90)
+
+
+//move_homing(2, 240)
+move_quadratic(-30, 60, 2, 1)
+//move_bezier_cubic(30, -50, 60, 60, 30, 40, 120)
+
+//move_straight(2, ANG_TO_PLAYER)
+//move_trajectory(2, -3, 0, 0.2, 2, 4);
+
+//move_circle(270, 120, 2);
+
+//let $test = 0
+//let $rad = 60
+//while($test<360){
+	
+//	set_position(192 + $rad * cos($test), 224 + $rad * sin($test))
+	
+//	$test = $test+1
+//	wait(1)
+//}
+
+//swave_setfreq(8)
+wait(15)
+shoot_ring(1, 90, 8)
+
+//let $rad = 120
+//while($rad>60){
+//	$rad = $rad-0.5
+//	circ_setradius($rad)
+//	circ_setcenx(PLAYER_X)
+//	circ_setceny(PLAYER_Y)
+//	wait(1)
+//}
+swave_setamplitude(60)

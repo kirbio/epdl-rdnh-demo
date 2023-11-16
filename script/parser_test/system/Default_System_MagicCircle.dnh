@@ -1,0 +1,421 @@
+#include"../lib/EV_const.dnh"
+
+let dirCurrent = GetCurrentScriptDirectory;
+let typeEnd = 0;
+let END_FAILED = 1;
+let END_SUCCESS = 2;
+let IsTimeStopped = false;
+let TimeSpeed = 1;
+
+@Initialize{
+	SpellCircleFam(20,108);
+	EndSpell;
+	SpellTimeUsage;
+	/*let pathUseSpell = dirCurrent ~ "se/seUseSpellCard.wav";
+	LoadSound(pathUseSpell);
+	PlaySE(pathUseSpell);*/
+	PlaySoundA1("cardcall",100,0);
+}
+
+@MainLoop{
+	//if(GetCommonData("TimeStop", 0)>0){IsTimeStopped=true}else{IsTimeStopped=false}
+	//TimeSpeed = GetCommonData("TimeSlow", 1);
+	//WriteLog(GetStageTime);
+	yield;
+}
+
+@Event{
+	alternative(GetEventType)
+	case(EV_END_BOSS_STEP){
+		if(typeEnd == 0){
+			typeEnd = END_FAILED;
+		}
+	}
+	case(EV_GAIN_SPELL){
+		typeEnd = END_SUCCESS;
+	}
+}
+
+@Finalize{
+}
+
+let mgc = GetCurrentScriptDirectory ~ "../img/system/spell.png";
+
+
+function CreateMGCFamiliar(x,y,life){
+	let FamObj = ObjEnemy_Create(OBJ_ENEMY);
+	ObjEnemy_Regist(FamObj);
+	ObjMove_SetPosition(FamObj,x,y);
+	ObjEnemy_SetLife(FamObj,life);
+	ObjEnemy_SetDamageRate(FamObj,0,0);
+	Deletion;
+
+	task Deletion{
+		let boss = GetEnemyBossObjectID()[0];
+		while(!Obj_IsDeleted(boss)){
+			yield;
+		}
+		Obj_Delete(FamObj);
+	}
+	return FamObj;
+}
+
+task SpellCircleFam(Vertexes,Size){
+	let boss = GetEnemyBossObjectID()[0];
+	let fam = CreateMGCFamiliar(1,1,1);
+
+	SpellBorderOfLife(fam,Vertexes,Size);
+	if(GetCommonData("LastActive", false)==true){SpellBlueThunder(fam,Vertexes,Size,32,47);}else{SpellBlueThunder(fam,Vertexes,Size,48,65);}
+	if(IsSurvival){
+		while(!Obj_IsDeleted(boss)){
+			ObjMove_SetPosition(fam,STGFRAME_WIDTH/2,STGFRAME_HEIGHT/2);
+			yield;
+		}
+	}else{
+		ObjMove_SetPosition(fam,ObjMove_GetX(boss),ObjMove_GetY(boss));
+		while(!Obj_IsDeleted(fam)){
+			if( ObjMove_GetX(boss)<(STGFRAME_WIDTH/2*2) && ObjMove_GetX(boss)>(0) && ObjMove_GetY(boss)<(STGFRAME_HEIGHT/2*2) && ObjMove_GetY(boss)>(0) ){
+				ObjMove_SetDestAtWeight(fam,ObjMove_GetX(boss),ObjMove_GetY(boss),15,20);
+			}
+			yield;
+		}}
+	Obj_Delete(fam);
+}
+
+task SpellBorderOfLife(ID,Vertexes,Size){
+	let BOLobj = ObjPrim_Create(OBJ_PRIMITIVE_2D);
+	LoadTexture(mgc);
+	let a = 0;
+	let spin = 0;
+	let spin2 = 0;
+	let width = 15;
+	let dis = 0;
+	let disacc = 12;
+	let c = 0;
+	let graphloop = 0;
+	let start = 0;
+	let tsize = 0;
+	let movecount = 1;
+
+
+	ObjPrim_SetTexture(BOLobj,mgc);
+	ObjSprite2D_SetDestCenter(BOLobj);
+	ObjRender_SetPosition(BOLobj,ObjMove_GetX(ID),ObjMove_GetY(ID),0);
+	ObjRender_SetBlendType(BOLobj,BLEND_ADD_ARGB);
+	ObjPrim_SetPrimitiveType(BOLobj,PRIMITIVE_TRIANGLESTRIP);
+
+	ObjPrim_SetVertexCount(BOLobj,(Vertexes-1)*2+2);
+
+	ascent(r in 0..Vertexes){
+		ObjPrim_SetVertexUVT(BOLobj,r*2,80,graphloop);
+		ObjPrim_SetVertexUVT(BOLobj,r*2+1,95,graphloop);
+		graphloop+=(128*Vertexes)/Size;
+	}
+
+	Obj_SetRenderPriorityI(BOLobj,31);
+
+	while(!Obj_IsDeleted(ID)){
+		ObjRender_SetAngleXYZ(BOLobj,sin(spin2/2)*60,sin(spin2/5)*60,spin);
+		spin+=5;
+		if(c==2){spin2++;}
+		if(c==0 || c==1){dis+=disacc;}
+		if(disacc>-10){disacc-=0.2;}
+		if(c==0 && dis>=200){c=1;}
+		if(c==1 && dis<=165){
+			c=2;
+			start=ObjEnemyBossScene_GetInfo(GetEnemyBossSceneObjectID,INFO_TIMER);}
+		if(c==2){
+			tsize=165-((150/start)*(start-ObjEnemyBossScene_GetInfo(GetEnemyBossSceneObjectID,INFO_TIMER)));}
+		if(c==2 && dis>tsize){
+			dis-=0.1/2;}
+		ascent(V in 0..Vertexes){
+			ObjPrim_SetVertexPosition(BOLobj,V*2,(dis-width)*cos(V*360/(Vertexes-1) ),(dis-width)*sin(V*360/(Vertexes-1) ), 0);
+			ObjPrim_SetVertexPosition(BOLobj,V*2+1,dis*cos(V*360/(Vertexes-1) ),dis*sin(V*360/(Vertexes-1) ), 0);
+		}
+		if(a<155){
+			
+			ascent(fade in 0..Vertexes){
+				ObjPrim_SetVertexAlpha(BOLobj,fade*2,a);
+				ObjPrim_SetVertexAlpha(BOLobj,fade*2+1,a);
+			}
+			
+			a+=2;
+		}
+		
+		ObjRender_SetPosition(BOLobj,ObjMove_GetX(ID),ObjMove_GetY(ID),0);
+		yield;
+	}
+	Obj_Delete(BOLobj);
+}
+
+task SpellBlueThunder(ID,Vertexes,Size,N1,N2){
+	let Thund = ObjPrim_Create(OBJ_PRIMITIVE_2D);
+	let SCalpha = 0;
+	let SCspin = 0;
+	let SCwidth = 15;
+	let SCdistance = 0;
+	let SCcounter = 1;
+	let SCwidthcounter = 0;
+	let SCdistanceacc = 5;
+
+	let SCspin2 = 0;
+
+	let graphicloop = 0;
+	let startingtime = 0;
+	let timesize = 0;
+
+	LoadTexture(mgc);
+	ObjPrim_SetTexture(Thund,mgc);
+	ObjSprite2D_SetDestCenter(Thund);
+	ObjRender_SetPosition(Thund,ObjMove_GetX(ID),ObjMove_GetY(ID),0);
+
+	ObjRender_SetBlendType(Thund,BLEND_ADD_ARGB);
+
+	ObjPrim_SetPrimitiveType(Thund,PRIMITIVE_TRIANGLESTRIP);
+
+	ObjPrim_SetVertexCount( Thund, (Vertexes-1)*2+2 );
+
+	ascent(r in 0..Vertexes){
+		
+		ObjPrim_SetVertexUVT(Thund,r*2,N1,graphicloop);
+		ObjPrim_SetVertexUVT(Thund,r*2+1,N2,graphicloop);
+		
+		graphicloop+=(128*Vertexes)/Size;
+
+	}
+	
+
+	Obj_SetRenderPriorityI(Thund,31);
+
+	while(!Obj_IsDeleted(ID)){
+
+		if(SCdistanceacc>0.5){SCdistanceacc-=0.1;}
+
+		if(SCwidth<120 && SCwidthcounter==0){SCwidth+=2;}
+		
+		if(SCwidth>=120 && SCwidthcounter==0){SCwidthcounter=1;}
+
+		if(SCwidth>15 && SCwidthcounter==1){SCwidth-=2;}
+
+		ObjRender_SetAngleXYZ(Thund,sin(SCspin2/5)*60,sin(SCspin2/2)*60,SCspin);
+		SCspin-=5;
+		
+		if(SCcounter==2){SCspin2++;}
+		
+		if(SCcounter==1){
+			SCdistance+=SCdistanceacc;}
+		
+		if(SCcounter==1 && SCdistance>=140){
+			SCcounter=2;
+			startingtime=ObjEnemyBossScene_GetInfo(GetEnemyBossSceneObjectID,INFO_TIMER);}
+		
+		if(SCcounter==2){
+			timesize=150-((140/startingtime)*(startingtime-ObjEnemyBossScene_GetInfo(GetEnemyBossSceneObjectID,INFO_TIMER)));}
+		
+		if(SCcounter==2 && SCdistance>timesize){
+			SCdistance-=0.1/2;}
+
+		ascent(V in 0..Vertexes){
+			ObjPrim_SetVertexPosition(Thund,V*2,(SCdistance-SCwidth)*cos(V*360/(Vertexes-1) ),(SCdistance-SCwidth)*sin(V*360/(Vertexes-1) ), 0);
+			ObjPrim_SetVertexPosition(Thund,V*2+1,SCdistance*cos(V*360/(Vertexes-1) ),SCdistance*sin(V*360/(Vertexes-1) ), 0);
+		}
+		
+		
+		
+		if(SCalpha<155){
+			
+			ascent(fade in 0..Vertexes){
+				ObjPrim_SetVertexAlpha(Thund,fade*2,SCalpha);
+				ObjPrim_SetVertexAlpha(Thund,fade*2+1,SCalpha);
+			}
+			
+			SCalpha+=2;
+		}
+
+		
+		ObjRender_SetPosition(Thund,ObjMove_GetX(ID),ObjMove_GetY(ID),0);
+
+		yield;
+	}
+	Obj_Delete(Thund);
+}
+
+task EndSpell{
+	while(typeEnd == 0){
+		yield;
+	}
+	if(typeEnd == END_FAILED){
+		/*let pathFailSpell = dirCurrent ~ "se/fail.wav";
+		LoadSound(pathFailSpell);
+		PlaySE(pathFailSpell);*/
+		//PlaySoundA1("fail",100,0);
+		//FailedSpellCard;
+		//ShowSystemText(1); //Show "Failed" text
+		
+	}else{
+		/*let pathGainSpell = dirCurrent ~ "se/GetBonus.wav";
+		LoadSound(pathGainSpell);
+		PlaySE(pathGainSpell);*/
+		//PlaySoundA1("capture",100,0);
+	}
+	loop(200){yield}
+	CloseScript(GetOwnScriptID);
+}
+
+task SpellTimeUsage{
+	yield;
+	let spelltime = 0;
+	while(GetCommonData("OnEvent",false)){
+		yield;
+	}
+	let starttime = GetStageTime;
+	while(typeEnd == 0){
+		spelltime++;
+		yield;
+	}
+
+	let elapsedTime = GetStageTime-starttime;
+	/*if(elapsedTime==0){
+		elapsedTime = spelltime;
+	}*/
+
+	//DisplayStat(STGFRAME_HEIGHT-80,0,trunc(min(spelltime,9999)*100/60));
+	let actualTime = trunc(elapsedTime/10);
+	if(actualTime==0){
+		actualTime = trunc(min(spelltime,9999)*100/60);
+	}
+	//DisplayStat(STGFRAME_HEIGHT+64-80,1,rendertime);
+	DisplaySpellTime(trunc(min(spelltime,9999)*100/60), actualTime);
+}
+
+task DisplayStat(y,type,value){
+	let alpha = 0;
+	
+	let statX = GetStgFrameLeft+STGFRAME_WIDTH-108;
+
+	let text=ObjPrim_Create(OBJ_SPRITE_2D);
+	let img= GetCurrentScriptDirectory() ~ "../img/system/"~PickLanguage("HUD.png","HUD_jp.png");
+	ObjPrim_SetTexture(text,img);
+	ObjSprite2D_SetSourceRectB(text,0,128+48*type,256,48);
+	ObjSprite2D_SetDestCenter(text);
+	ObjRender_SetBlendType(text,BLEND_ALPHA);
+	ObjRender_SetScaleXYZ(text,1,1,0);
+	Obj_SetRenderPriority(text,1);
+	ObjRender_SetPosition(text,GetStgFrameLeft+STGFRAME_WIDTH-48,y,0);
+	
+	let obj = ObjPrim_Create(OBJ_SPRITE_LIST_2D);
+	ObjPrim_SetTexture(obj, GetCurrentScriptDirectory() ~ "../img/system/13_SystemDigit.png");
+	ObjRender_SetBlendType(obj, BLEND_ALPHA);
+	Obj_SetRenderPriority(obj, 1);
+	ObjRender_SetY(obj, y-8);
+	if(type==1){
+		ObjRender_SetColor(obj,140,133,133);
+	}
+	AssignValue;
+	ascent(i in 0..31){
+		alpha = i*255/30;
+		yield;
+	}
+	loop(60){
+		yield;
+	}
+	descent(i in 0..31){
+		alpha = i*255/30;
+		yield;
+	}
+	Obj_Delete(text);
+	Obj_Delete(obj);
+	task AssignValue{
+		while(!Obj_IsDeleted(obj)){
+			let score = value;
+			let count = 4;
+			score = min(score, 9999);
+			let listNum = DigitToArray(score, 4);
+			ObjSpriteList2D_ClearVertexCount(obj);
+			ascent(iObj in 0 .. 2)
+			{
+				let num = listNum[iObj];
+				ObjRender_SetX(obj, statX+(9-count)*24 + iObj * 24);
+				ObjSpriteList2D_SetSourceRect(obj, num * 32, 0, (num + 1) * 32, 38);
+				ObjSpriteList2D_SetDestRect(obj, 0, 0, 32, 38);
+				ObjSpriteList2D_AddVertex(obj);
+				ObjRender_SetAlpha(obj,alpha);
+			}
+			ObjRender_SetX(obj, statX+(9-count)*24 + 2 * 24);
+			ObjSpriteList2D_SetSourceRect(obj, 11 * 32, 0, (11 + 1) * 32, 38);
+			ObjSpriteList2D_SetDestRect(obj, 0, 0, 32, 38);
+			ObjSpriteList2D_AddVertex(obj);
+			ObjRender_SetAlpha(obj,alpha);
+			ascent(iObj in 2 .. 4)
+			{
+				let num = listNum[iObj];
+				ObjRender_SetX(obj, 16+statX+(9-count)*24 + iObj * 24);
+				ObjSpriteList2D_SetSourceRect(obj, num * 32, 0, (num + 1) * 32, 38);
+				ObjSpriteList2D_SetDestRect(obj, 0, 0, 32, 38);
+				ObjSpriteList2D_AddVertex(obj);
+				ObjRender_SetAlpha(obj,alpha);
+			}
+			ObjRender_SetX(obj, 18+statX+(9-count)*24 + 4 * 24);
+			ObjSpriteList2D_SetSourceRect(obj, 12 * 32, 0, (12 + 1) * 32, 38);
+			ObjSpriteList2D_SetDestRect(obj, 0, 0, 32, 38);
+			ObjSpriteList2D_AddVertex(obj);
+			ObjRender_SetAlpha(obj,alpha);
+			ObjRender_SetAlpha(text,alpha);
+			yield;
+		}
+	}
+
+}
+
+task FailedSpellCard{
+	let path = GetCurrentScriptDirectory ~ "../img/system/screentexts.png";
+	let objText = ObjPrim_Create(OBJ_SPRITE_2D);
+	ObjPrim_SetTexture(objText, path);
+	ObjSprite2D_SetSourceRect(objText, 0, 64, 512, 128);
+	ObjSprite2D_SetDestCenter(objText);
+	Obj_SetRenderPriority(objText, 0.8);
+	ObjRender_SetX(objText, STGFRAME_WIDTH);
+	ObjRender_SetY(objText, 196);
+
+
+	ascent(i in 0..16){
+		ObjRender_SetAlpha(objText,i*255/15);
+		yield;
+	}
+	loop(105){
+		yield;
+	}
+	descent(i in 0..31){
+		ObjRender_SetAlpha(objText,i*255/30);
+		yield;
+	}
+	Obj_Delete(objText);
+	loop(230){yield}
+	CloseScript(GetOwnScriptID);
+}
+
+//===============================================================================
+function DigitToArray(let digit,let count)
+{
+	let res = [];
+	digit = truncate(digit);
+
+	loop
+	{
+		let tnum = truncate(digit % 10);
+		digit /= 10;
+		res = [tnum] ~ res;
+		if(truncate(digit) == 0){break;}
+	}
+
+	loop(max(0, count - length(res)))
+	{
+		res = [0] ~ res;
+	}
+
+	return res;
+}
+
+function IsSurvival{
+	return ObjEnemyBossScene_GetInfo(GetEnemyBossSceneObjectID,INFO_IS_DURABLE_SPELL);
+}

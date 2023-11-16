@@ -1,0 +1,163 @@
+
+let imgMedal = GetImagePath~"system/medal.png";
+
+let RP_SPELLUI = 82;
+let RP_SPELLUI_BELOW = 81;
+
+task _DisplaySpellTime(cleartime, actualtime){
+	let objClearText = CreateEffectObjectB(516,449,imgHUD,BLEND_ALPHA,0,128,256,48);
+	let objActualText = CreateEffectObjectB(516,495,imgHUD,BLEND_ALPHA,0,128+48,256,48);
+	
+	Obj_SetRenderPriorityI(objClearText, RP_SPELLUI_BELOW);
+	Obj_SetRenderPriorityI(objActualText, RP_SPELLUI_BELOW);
+	
+	let objClearTime = ObjPrim_Create(OBJ_SPRITE_LIST_2D);
+	ObjPrim_SetTexture(objClearTime, pathDigit);
+	ObjRender_SetBlendType(objClearTime, BLEND_ALPHA);
+	Obj_SetRenderPriorityI(objClearTime, RP_SPELLUI_BELOW);
+	
+	let objActualTime = ObjPrim_Create(OBJ_SPRITE_LIST_2D);
+	ObjPrim_SetTexture(objActualTime, pathDigit);
+	ObjRender_SetBlendType(objActualTime, BLEND_ALPHA);
+	Obj_SetRenderPriorityI(objActualTime, RP_SPELLUI_BELOW);
+	
+	ObjRender_SetColor(objActualTime,175,175,175);
+	
+	DrawNumber(objClearTime, 736, 448, cleartime);
+	DrawNumber(objActualTime, 736, 494, actualtime);
+	
+	ObjRender_SetScaleXYZ(objClearText, 1, 0, 0);
+	ObjRender_SetScaleXYZ(objActualText, 1, 0, 0);
+	
+	ObjRender_SetScaleXYZ(objClearTime, 1, 0, 0);
+	ObjRender_SetScaleXYZ(objActualTime, 1, 0, 0);
+	
+	ObjRender_TweenScale(objClearText, 15, IP_2X_DECEL, NO_CHANGE, 1, NO_CHANGE);
+	ObjRender_TweenScale(objActualText, 15, IP_2X_DECEL, NO_CHANGE, 1, NO_CHANGE);
+	ObjRender_TweenScale(objClearTime, 15, IP_2X_DECEL, NO_CHANGE, 1, NO_CHANGE);
+	ObjRender_TweenScale(objActualTime, 15, IP_2X_DECEL, NO_CHANGE, 1, NO_CHANGE);
+	
+	wait(180);
+	
+	ObjRender_TweenScale(objClearText, 30, IP_2X_ACCEL, NO_CHANGE, 0, NO_CHANGE);
+	ObjRender_TweenScale(objActualText, 30, IP_2X_ACCEL, NO_CHANGE, 0, NO_CHANGE);
+	ObjRender_TweenScale(objClearTime, 30, IP_2X_ACCEL, NO_CHANGE, 0, NO_CHANGE);
+	ObjRender_TweenScale(objActualTime, 30, IP_2X_ACCEL, NO_CHANGE, 0, NO_CHANGE);
+	
+	wait(30);
+	
+	Obj_Delete(objClearText);
+	Obj_Delete(objActualText);
+	Obj_Delete(objClearTime);
+	Obj_Delete(objActualTime);
+	
+	task DrawNumber(obj, posX, posY, number){
+		//Draw Score
+		let count =	 4;//max(3,GetNumSize(multiplier));
+		let listNum = DigitToArray(number, count);
+		
+		//Shift everything back by half of the total width
+		let shiftX = (count+1)*10+8;
+		ObjRender_SetY(obj, -18);
+		
+		let num;
+		ascent(iObj in 0 .. 2)
+		{
+			num = listNum[iObj];
+			if(!(num==0 && iObj==0)){
+				ObjRender_SetX(obj, -shiftX + iObj * 24);
+				ObjSpriteList2D_SetSourceRect(obj, num * 32, 0, (num + 1) * 32, 38);
+				ObjSpriteList2D_SetDestRect(obj, 0, 0, 32, 38);
+				ObjSpriteList2D_AddVertex(obj);
+			}
+		}
+		ascent(iObj in 2 .. count)
+		{
+			num = listNum[iObj];
+			ObjRender_SetX(obj, -shiftX + 48 + (iObj-2) * 20 + 5);
+			ObjSpriteList2D_SetSourceRect(obj, num * 32, 0, (num + 1) * 32, 38);
+			ObjSpriteList2D_SetDestRect(obj, 6.4, 7.6, 32, 38); //32*0.2, 38*0.2, 32, 38;
+			ObjSpriteList2D_AddVertex(obj);
+		}
+		//Dot
+		num = 11;
+		ObjRender_SetX(obj, -16);
+		ObjSpriteList2D_SetSourceRect(obj, num * 32, 0, (num+1) * 32, 38);
+		ObjSpriteList2D_SetDestRect(obj, 0, 0, 32, 38);
+		ObjSpriteList2D_AddVertex(obj);
+		
+		//s
+		num = 12;
+		ObjRender_SetX(obj, -shiftX + count * 24 + 3);
+		ObjSpriteList2D_SetSourceRect(obj, num * 32, 0, (num+1) * 32, 38);
+		ObjSpriteList2D_SetDestRect(obj, 0, 2, 32, 38);
+		ObjSpriteList2D_AddVertex(obj);
+		
+		ObjSpriteList2D_CloseVertex(obj);
+		ObjRender_SetScaleXYZ(obj, 0.5, 0.5, 0);
+		ObjRender_SetPosition(obj, posX, posY, 0);
+	}
+}
+
+task _DisplayMedal(type){
+
+	let headerType = min(type, 2);
+	let medalType = 2-headerType;
+	let textType = type;
+
+	let objMedal = CreateEffectObjectB(530,572,imgMedal,BLEND_ALPHA,64*medalType,256,64,128);
+	let objHeader = CreateEffectObjectB(704,548,imgMedal,BLEND_ALPHA,0,64*headerType,256,64);
+	let objText = CreateEffectObjectB(704,596,imgMedal,BLEND_ALPHA,256,64*textType,256,64);
+	
+	Obj_SetRenderPriorityI(objMedal, RP_SPELLUI);
+	Obj_SetRenderPriorityI(objHeader, RP_SPELLUI);
+	Obj_SetRenderPriorityI(objText, RP_SPELLUI);
+	
+	ObjRender_SetAngleZ(objMedal, -180);
+	ObjRender_SetScaleXYZ(objMedal, 0, 0, 0);
+	ObjRender_SetScaleXYZ(objHeader, 1.5, 0, 0);
+	ObjRender_SetScaleXYZ(objText, 1, 0, 0);
+	
+	ObjRender_TweenAngle(objMedal, 30, IP_2X_DECEL, NO_CHANGE, NO_CHANGE, 0);
+	ObjRender_TweenScale(objMedal, 30, IP_2X_DECEL, 1, 1, 0);
+	ObjRender_TweenScale(objHeader, 15, IP_2X_DECEL, 1, 1, 0);
+	ObjRender_TweenScale(objText, 15, IP_2X_DECEL, 1, 1, 0);
+	
+	wait(30);
+	
+	loop(15){
+		SpawnSparkle(530+prand(-32, 32),572+prand(-64, 64));
+		wait(10);
+	}
+	
+	ObjRender_TweenScale(objMedal, 30, IP_2X_ACCEL, 0, 0, 0);
+	ObjRender_TweenScale(objHeader, 30, IP_2X_ACCEL, 1, 0, 0);
+	ObjRender_TweenScale(objText, 30, IP_2X_ACCEL, 1, 0, 0);
+	
+	wait(30);
+	Obj_Delete(objMedal);
+	Obj_Delete(objHeader);
+	Obj_Delete(objText);
+
+	task SpawnSparkle(x, y){
+		let scale = prand(0.4, 1);
+	
+		let objSparkle = CreateEffectObjectB(x, y,imgMedal,BLEND_ALPHA,192,256,64,64);
+		Obj_SetRenderPriorityI(objSparkle, RP_SPELLUI);
+		ObjRender_SetScaleXYZ(objSparkle, scale, scale, 0);
+		ObjRender_SetRotationSpeed(objSparkle, 0, 0, prand(-2, 2));
+		
+		ObjRender_SetAlpha(objSparkle, 0);
+		ObjRender_TweenAlpha(objSparkle, 15, IP_LINEAR, 180);
+		
+		wait(30);
+		
+		ObjRender_TweenAlpha(objSparkle, 15, IP_LINEAR, 0);
+		
+		wait(15);
+		
+		Obj_Delete(objSparkle);
+		
+	}
+
+}

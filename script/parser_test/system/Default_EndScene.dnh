@@ -1,0 +1,216 @@
+#include"../lib/EV_const.dnh"
+#include"../lib/lib_font.dnh"
+
+#include"../lib/lib_pausescreen.dnh"
+
+let imgHUD = GetCurrentScriptDirectory ~ "./../img/system/hud.png";
+
+let temp_oldvbuck = 0;
+
+@Initialize
+{
+	SetAutoDeleteObject(true);
+	
+	menuMode = MENU_NAME_ENTRY;
+	
+	temp_oldvbuck = GetGlobalVBuckCount();
+	AddGlobalVBuckCount(GetGlobalVBuckTempCount());
+	
+	TBackground();
+	TContinueMenu;
+	SetCommonData("Menu",true);
+	PlayGameOverMusic;
+}
+
+@MainLoop
+{
+	yield;
+}
+
+@Finalize
+{
+}
+
+task TMenu2
+{
+	
+
+
+	//Intiallize Variables
+	let mx = isWideScreen ? 462+215 : 462;
+	let my = 648;
+	let title = CreateEffectObject(mx-60, my-140,imgPause01,BLEND_ALPHA,0,64,256,128);
+	FadeOutControl(title);
+	SetBG( mx, my );
+	DisplayCredits();
+	let texts = ["leave","savereplay","retry"];
+	var countMenu = length(texts);
+	ascent(var iText in 0 .. countMenu)
+	{
+		TMenuItem(iText,mx+72+106, my-48, texts[iText]);
+		my += 64;
+	}
+
+	//Safeguard for lingering VK status
+	while(GetVirtualKeyState(VK_PAUSE) != KEY_FREE){yield;}
+	while(GetVirtualKeyState(VK_OK) != KEY_FREE){yield;}
+
+	//Keyboard Checking
+	let frameKeyHold = 0;//For Key Holding
+	loop
+	{
+		if(GetVirtualKeyState(VK_OK) == KEY_PULL)
+		{
+			/*if (selectIndex!=2){
+			let listResult = [RESULT_CANCEL, RESULT_END,0, RESULT_RETRY];
+			SetScriptResult(listResult[selectIndex]);
+			CloseScript(GetOwnScriptID());
+			return;
+		}*/
+			if(menuMode == MENU_SELECT){
+				PlaySoundA1("ok",100,0);
+				alternative(selectIndex)
+				case(0,2){ //Proceed to Menu#2
+					menuMode = MENU_CONFIRM;
+					selectIndex2 = 1;
+					TConfirmMenu; //Show Menu
+				}
+				case(1){ //Replay Save
+					if(!IsContinue){
+						SetScriptResult(RESULT_SAVE_REPLAY);
+						CloseScript(GetOwnScriptID());
+					}else{
+						PlaySoundA1("invalid",100,0);
+					}
+				}
+			}else if(menuMode == MENU_CONFIRM){
+				if(selectIndex2==0){
+					PlaySoundA1("ok",100,0);
+					SetScriptResult([RESULT_END,RESULT_RETRY][selectIndex!=0]);
+					StopMusic();
+					SetCommonData("Menu",false);
+					CloseScript(GetOwnScriptID());
+				}else{
+					PlaySoundA1("cancle",100,0);
+					menuMode = MENU_SELECT;
+				}
+				
+			}
+			
+			
+		}
+
+		if(GetVirtualKeyState(VK_CANCEL) == KEY_PULL||GetVirtualKeyState(VK_PAUSE) == KEY_PULL)
+		{
+			if(menuMode == MENU_CONFIRM){
+				if(selectIndex2==0){
+					selectIndex2=1;
+				}else{
+					menuMode = MENU_SELECT;
+				}
+				
+			}else{
+				selectIndex = 0;
+			}
+			
+			PlaySoundA1("cancle",100,0);
+		}
+
+		//カーソル移動
+		if(GetVirtualKeyState(VK_UP) == KEY_PUSH)
+		{
+			if(menuMode == MENU_SELECT){
+				selectIndex--;
+			}else if(menuMode == MENU_CONFIRM){
+				selectIndex2--;
+			}
+			PlaySoundA1("select",100,0);
+		}
+		else if(GetVirtualKeyState(VK_DOWN) == KEY_PUSH)
+		{
+			if(menuMode == MENU_SELECT){
+				selectIndex++;
+			}else if(menuMode == MENU_CONFIRM){
+				selectIndex2++;
+			}
+			PlaySoundA1("select",100,0);
+		}
+		else if(GetVirtualKeyState(VK_UP) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(frameKeyHold == 30 || (frameKeyHold > 30 && (frameKeyHold % 10 == 0)))
+			{
+				if(menuMode == MENU_SELECT){
+					selectIndex--;
+				}else if(menuMode == MENU_CONFIRM){
+					selectIndex2--;
+				}
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else if(GetVirtualKeyState(VK_DOWN) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(frameKeyHold == 30 || (frameKeyHold > 30 && (frameKeyHold % 10 == 0)))
+			{
+				if(menuMode == MENU_SELECT){
+					selectIndex++;
+				}else if(menuMode == MENU_CONFIRM){
+					selectIndex2++;
+				}
+				PlaySoundA1("select",100,0);
+			}
+		}
+		else
+		{
+			frameKeyHold = 0;
+		}
+
+		if(selectIndex < 0) 
+		{
+			selectIndex = countMenu - 1;
+		}
+		else
+		{
+			selectIndex %= countMenu;
+		}
+		
+		if(selectIndex2 < 0) 
+		{
+			selectIndex2 = 1;
+		}
+		else
+		{
+			selectIndex2 %= 2;
+		}
+
+		yield;
+	}
+}
+
+task DisplayCredits{
+	if(IsReplay){return;}
+	
+	let mx = isWideScreen ? 462+215 : 462;
+	let my = 32;
+	
+	let title = CreateEffectObjectB(600-60, 448*2,imgHUD,BLEND_ALPHA,256,80,256, 48);
+	
+	let objNumber = CreateNumberObject(600+60, 448*2);
+	ObjRender_SetColor(objNumber, 250, 165, 230);
+	ObjNumber_SetNumber(objNumber, vbuck_count);
+	
+	let addedbuck = vbuck_count-temp_oldvbuck;
+
+
+	if(addedbuck>0){
+		ascent(i in 0..6){
+			ObjNumber_SetNumber(objNumber, Interpolate(IP_LINEAR, temp_oldvbuck, vbuck_count, i/5));
+			PlaySoundA1("coin",70,0);
+			wait(5);
+		}	
+	
+	}
+	
+	ObjNumber_SetNumber(objNumber, vbuck_count);
+}

@@ -1,0 +1,61 @@
+//================================================================
+//Texture
+//================================================================
+sampler sampler0_ : register(s0);
+
+struct PS_INPUT
+{
+	float4 diffuse : COLOR0;  // Diffuse colour
+	float2 texCoord : TEXCOORD0; // Texture coordinates
+	float2 vPos : VPOS; // Render dest coordinates
+};
+
+struct PS_OUTPUT
+{
+    float4 color : COLOR0; // Output colour
+};
+
+
+
+//================================================================
+// Global Variables
+//================================================================
+
+// Add them here
+
+
+
+
+
+//================================================================
+// Shader
+//================================================================
+
+PS_OUTPUT PsShad ( PS_INPUT In ) : COLOR0 {
+	// Setup ////////////////////////////////////////////////////////////////
+	
+		PS_OUTPUT Out;
+		float4 colorTexture = tex2D(sampler0_, In.texCoord);
+		float4 colorDiffuse = In.diffuse;
+		float4 colorIn = colorTexture * colorDiffuse;
+
+	// Handle Output ////////////////////////////////////////////////////////////////
+		
+		Out.color.r = colorIn.r;
+		Out.color.g = colorIn.g;
+		Out.color.b = colorIn.b;
+		Out.color.a = 255;//colorIn.a;
+
+		return Out;
+}
+
+
+//================================================================
+// Technique
+//================================================================
+
+technique TecShad {
+	pass P0 {
+		PixelShader = compile ps_3_0 PsShad();
+	}
+}

@@ -1,0 +1,142 @@
+#include"../lib/EV_const.dnh"
+//include"../lib/lib_font.dnh"
+
+#include"../lib/lib_pausescreen.dnh"
+
+let isPauseSong;
+
+@Initialize
+{
+	SetAutoDeleteObject(true);
+	
+	//menuMode = MENU_SELECT;
+	
+	/*isPauseSong = GetGameMode!=GMODE_SPPRAC||IsReplay();
+	if(isPauseSong){
+		PauseMusic();
+	}*/
+	
+	//PlaySoundA1("pause",100,0);
+	TBackground();
+	TMenu();
+}
+
+@MainLoop
+{
+	yield;
+}
+
+@Finalize
+{
+}
+
+
+task TMenu
+{
+	let selectIndex = 0;//選択位置
+	task TMenuItem(let index, let mx, let my, let text)
+	{
+		function CreateTextObject(let mx, let my, let text)
+		{
+			let obj = ObjText_Create();
+			ObjText_SetText(obj, text);
+			ObjText_SetFontSize(obj, 35);
+			ObjText_SetFontBold(obj, true);
+			ObjText_SetFontColorTop(obj, 128, 128, 128);
+			ObjText_SetFontColorBottom(obj, 128, 128, 128);
+			ObjText_SetFontBorderType(obj, BORDER_FULL);
+			ObjText_SetFontBorderColor(obj,0, 0, 0);
+			ObjText_SetFontBorderWidth(obj, 2);
+			Obj_SetRenderPriorityI(obj, 10);
+			ObjRender_SetX(obj, mx*2);
+			ObjRender_SetY(obj, my*2);
+			return obj;
+		}
+
+		let objText = CreateTextObject(mx, my, text);
+		let objSelect = CreateTextObject(mx, my, text);
+		ObjRender_SetBlendType(objSelect, BLEND_ADD_RGB);
+		loop
+		{
+			Obj_SetVisible(objSelect, index == selectIndex);
+			yield;
+		}
+	}
+
+	//メニュー配置
+	let mx = 160;
+	let my = 360;
+	let texts = ["Unpause", "Return to Menu", "Restart"];
+	var countMenu = length(texts);
+	ascent(var iText in 0 .. countMenu)
+	{
+		TMenuItem(iText, mx, my, texts[iText]);
+		my += 24;
+	}
+
+	//キー状態がリセットされるまで待機
+	while(GetVirtualKeyState(VK_PAUSE) != KEY_FREE){yield;}
+
+	//メニュー選択処理
+	let frameKeyHold = 0;//キー押しっぱなしフレーム数
+	loop
+	{
+		//決定
+		if(GetVirtualKeyState(VK_OK) == KEY_PULL)
+		{
+			let listResult = [RESULT_CANCEL, RESULT_END, RESULT_RETRY];
+			SetScriptResult(listResult[selectIndex]);
+			CloseScript(GetOwnScriptID());
+			return;
+		}
+
+		//キャンセル
+		if(GetVirtualKeyState(VK_CANCEL) == KEY_PULL || GetVirtualKeyState(VK_PAUSE) == KEY_PULL)
+		{
+			SetScriptResult(RESULT_CANCEL);
+			CloseScript(GetOwnScriptID());
+			return;
+		}
+
+		//カーソル移動
+		if(GetVirtualKeyState(VK_UP) == KEY_PUSH)
+		{
+			selectIndex--;
+		}
+		else if(GetVirtualKeyState(VK_DOWN) == KEY_PUSH)
+		{
+			selectIndex++;
+		}
+		else if(GetVirtualKeyState(VK_UP) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(frameKeyHold == 30 || (frameKeyHold > 30 && (frameKeyHold % 10 == 0)))
+			{
+				selectIndex--;
+			}
+		}
+		else if(GetVirtualKeyState(VK_DOWN) == KEY_HOLD)
+		{
+			frameKeyHold++;
+			if(frameKeyHold == 30 || (frameKeyHold > 30 && (frameKeyHold % 10 == 0)))
+			{
+				selectIndex++;
+			}
+		}
+		else
+		{
+			frameKeyHold = 0;
+		}
+
+		if(selectIndex < 0) 
+		{
+			selectIndex = countMenu - 1;
+		}
+		else
+		{
+			selectIndex %= countMenu;
+		}
+
+		yield;
+	}
+}

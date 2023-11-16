@@ -1,0 +1,41 @@
+let RT_ZOOMVIEW = "tZW";
+
+let pathShader= GetCurrentScriptDirectory() ~ "../lib/shader/alphareset.txt";
+
+task HUD_RenderZoomView{
+	
+	CreateRenderTargetB(RT_ZOOMVIEW, 1280, 960);
+	
+	//SetInvalidRenderPriorityA1(0, 98);
+	
+	let objBorder = CreateEffectObject(1152, 612,imgWhite,BLEND_INV_DESTRGB,0,0,196,196);
+	Obj_SetRenderPriorityI(objBorder, RP_HUD);
+	
+	let obj = ObjPrim_Create(OBJ_SPRITE_2D);
+	ObjPrim_SetTexture(obj, RT_ZOOMVIEW);
+	ObjRender_SetBlendType(obj, BLEND_ALPHA);
+	
+	ObjSprite2D_SetSourceRect(obj, 256, 32, 256+384*2, 32+448*2);
+	ObjSprite2D_SetDestRect(obj, -96, -96, 96, 96);
+	
+	ObjRender_SetPosition(obj, 1152, 612, -1);
+	
+	ObjRender_SetTextureFilter(obj, FILTER_LINEAR);
+	
+	Obj_SetRenderPriorityI(obj, RP_HUD);
+	ObjShader_SetShaderF(obj,pathShader);
+	ObjShader_SetTechnique(obj,"TecShad");
+	
+	//Obj_SetVisible(obj, false);
+	
+	loop{
+		RenderToTextureA1(RT_ZOOMVIEW, 20, 32, true);
+		RenderToTextureA1(RT_ZOOMVIEW, 34, 67, false);
+		
+		//ObjSprite2D_SetSourceRectB(obj, min(max(256, 181+GetPlayerX*2), 256+384*2-150), min(max(32, 32-75+GetPlayerY*2), 32+448*2-150) , 150, 150);
+		ObjSprite2D_SetSourceRectB(obj, min(max(256, 181+GetPlayerX*2), 874), min(max(32, -43+GetPlayerY*2), 778) , 150, 150);
+		
+		yield;
+	}
+	
+}

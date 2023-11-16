@@ -1,0 +1,12 @@
+task Reset2DCameraEX(){
+	Set2DCameraRatio(2); 
+	Set2DCameraFocusX(192);
+	Set2DCameraFocusY(224);
+}
+
+let CURRENT_WINDOWSIZE = GetDnhConfigValue(DNHCONFIG_WINDOW_SIZE);
+
+function PickTextureResolution(texSD,texHD){
+	//WriteLog(CURRENT_WINDOWSIZE);
+	return CURRENT_WINDOWSIZE>=2?texHD:texSD;
+}

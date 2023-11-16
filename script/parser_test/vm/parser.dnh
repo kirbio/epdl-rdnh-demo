@@ -1,0 +1,739 @@
+// =======================================================================
+// Lexer and Parser
+//
+// It's really ugly to have these both shoved into one function, but
+// since dnh doesn't have references it's really hard to manage the state
+// of both separately...
+//
+// this effectively makes the lexer a singleton, which is bad because you
+// can't create a secondary lexer for scanning ahead to define variables
+// out-of-order like dnh allows
+// =======================================================================
+
+function Parser_Main(let src) {
+	// =======================================================================
+	// Lexer
+	//
+	// much of this is converted from rdnh's source lol
+	// =======================================================================
+	
+	let lex_index = 0;
+	let lex_source = src ~ "\x00";
+	let lex_endPoint = length(src);
+	
+	let lex_line = 1;
+	let lex_next;
+	
+	// these all store the currently scanned value
+	// use them *before* moving to the next token with Lex_Advance
+	let lex_realValue = 0;
+	let lex_boolValue = false;
+	let lex_stringValue = "";
+	let lex_word = "";
+	let lex_varname = "";
+	
+	function Lex_CurrentChar() {
+		return lex_source[lex_index];
+	}
+	
+	function Lex_PeekChar(let index) {
+		let pos = lex_index + index;
+		if (pos >= lex_endPoint) { return '\x00'; }
+		return lex_source[pos];
+	}
+	
+	function Lex_NextChar() {
+		lex_index++;
+		return lex_source[lex_index];
+	}
+	
+	// skips whitespace and comments
+	// if comments in the language are simpler, performance can be improved slightly
+	// by simplifying this function
+	function Lex_Skip() {
+		let ch1 = Lex_CurrentChar();
+		let ch2 = Lex_PeekChar(1);
+		
+		while (ch1 == '\r' || ch1 == '\n' || ch1 == '\t' || ch1 == ' '
+			|| ch1 == '#' || (ch1 == '/' && (ch2 == '/' || ch2 == '*'))) {
+			// skip comments
+			if (ch1 == '#' ||
+				(ch1 == '/' && (ch2 == '/' || ch2 == '*'))) {
+				if (ch1 == '#' || ch2 == '/') {
+					ch1 = Lex_NextChar();
+					while (ch1 != '\r' && ch1 != '\n') {
+						ch1 = Lex_NextChar();
+					}
+				}
+				else {
+					Lex_NextChar();
+					ch1 = Lex_NextChar();
+					ch2 = Lex_PeekChar(1);
+					while (ch1 != '*' || ch2 != '/') {
+						if (ch1 == '\n') { lex_line++; }
+						ch1 = Lex_NextChar();
+						ch2 = Lex_PeekChar(1);
+					}
+					ch1 = Lex_NextChar();
+					ch1 = Lex_NextChar();
+				}
+			}
+			else if (ch1 == '\n') {
+				lex_line++;
+				ch1 = Lex_NextChar();
+			}
+			else {
+				ch1 = Lex_NextChar();
+			}
+			ch2 = Lex_PeekChar(1);
+		}
+	}
+	
+	function Lex_Advance() {
+		Lex_Skip();
+		
+		let ch = Lex_CurrentChar();
+		if (ch == '\x00' || lex_index >= lex_endPoint) {
+			lex_next = TK_END;
+			return;
+		}
+		
+		if (ch == '(') {
+			lex_next = TK_OPEN_PAR;
+			ch = Lex_NextChar();
+		}
+		else if (ch == ')') {
+			lex_next = TK_CLOSE_PAR;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '{') {
+			lex_next = TK_OPEN_BRACE;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '}') {
+			lex_next = TK_CLOSE_BRACE;
+			ch = Lex_NextChar();
+		}
+		else if (ch == ';') {
+			lex_next = TK_SEMICOLON;
+			ch = Lex_NextChar();
+		}	
+		else if (ch == ',') {
+			lex_next = TK_COMMA;
+			ch = Lex_NextChar();
+		}		
+		else if (ch == '+') {
+			lex_next = TK_PLUS;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '-') {
+			lex_next = TK_MINUS;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '*') {
+			lex_next = TK_ASTERISK;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '/') {
+			lex_next = TK_SLASH;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '^') {
+			lex_next = TK_POW;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '%') {
+			lex_next = TK_MOD;
+			ch = Lex_NextChar();
+		}
+		else if (ch == '=') {
+			lex_next = TK_ASSIGNMENT;
+			ch = Lex_NextChar();
+			if (ch == '=') {
+				lex_next = TK_EQUAL;
+				ch = Lex_NextChar();
+			}
+		}
+		else if (ch == '<') {
+			lex_next = TK_LESSER;
+			ch = Lex_NextChar();
+			if (ch == '=') {
+				lex_next = TK_LESSER_EQ;
+				ch = Lex_NextChar();
+			}
+		}
+		else if (ch == '>') {
+			lex_next = TK_GREATER;
+			ch = Lex_NextChar();
+			if (ch == '=') {
+				lex_next = TK_GREATER_EQ;
+				ch = Lex_NextChar();
+			}
+		}
+		else if (ch == '!') {
+			lex_next = TK_NOT;
+			ch = Lex_NextChar();
+			if (ch == '=') {
+				lex_next = TK_INEQUAL;
+				ch = Lex_NextChar();
+			}
+		}
+		else if (ch == '&') {
+			lex_next = TK_INVALID;
+			ch = Lex_NextChar();
+			if (ch == '&') {
+				lex_next = TK_AND;
+				ch = Lex_NextChar();
+			}
+		}
+		else if (ch == '|') {
+			lex_next = TK_INVALID;
+			ch = Lex_NextChar();
+			if (ch == '|') {
+				lex_next = TK_OR;
+				ch = Lex_NextChar();
+			}
+		}
+		else if (ch == '$') {
+			ch = Lex_PeekChar(1);
+			if(isalpha(ch) || ch == "_"){
+				Lex_NextChar();
+				lex_next = _Lex_ScanWord();
+				lex_varname = lex_word;
+				lex_word =  "$"~lex_varname;
+				lex_next = TK_VARIABLE;
+			}else{
+				lex_next = TK_INVALID;
+			}
+		}
+		else {
+			if (isdigit(ch)) {
+				lex_next = _Lex_ScanNumber();
+			}
+			else if (isalpha(ch) || ch == '_') {
+				lex_next = _Lex_ScanWord();
+				
+				// add new keywords here
+				if (lex_word == "print") {
+					lex_next = TK_PRINT;
+				}else if(lex_word == "if"){
+					lex_next = TK_IF;
+				}else if(lex_word == "elif"){
+					lex_next = TK_ELIF;
+				}else if(lex_word == "else"){
+					lex_next = TK_ELSE;
+				}else if(lex_word == "while"){
+					lex_next = TK_WHILE;
+				}else if(lex_word == "let"){
+					lex_next = TK_LET;
+				}
+				
+				else if(lex_word == "sin"){
+					lex_next = TK_SIN;
+				}
+				else if(lex_word == "cos"){
+					lex_next = TK_COS;
+				}
+				else if(lex_word == "tan"){
+					lex_next = TK_TAN;
+				}
+				else if(lex_word == "rand"){
+					lex_next = TK_RAND;
+				}
+				//EPDL
+				else if(lex_word == "move_straight" || lex_word == "move_sinewave" || lex_word == "move_homing" || lex_word == "move_bezier_quadratic" || lex_word == "move_bezier_cubic" || lex_word == "move_quadratic" || lex_word == "move_trajectory"|| lex_word == "move_circle" || lex_word == "move_reflect" || lex_word == "move_shake"|| lex_word == "swave_setamplitude" ||  lex_word == "swave_setfreq" ||  lex_word == "circ_setradius" ||  lex_word == "circ_setangvelocity" || lex_word == "circ_setcenx" || lex_word == "circ_setceny" || lex_word == "shoot_single" || lex_word == "shoot_ring"|| lex_word == "set_position" || lex_word == "wait" || lex_word == "stop"){
+					lex_next = TK_EPDL_FUNC;
+				}
+				
+				else if(lex_word == "PLAYER_X"|| lex_word == "PLAYER_Y"|| lex_word == "SELF_X"|| lex_word == "SELF_Y"|| lex_word == "SELF_ANGLE"|| lex_word == "ANG_TO_PLAYER"){
+					lex_next = TK_EPDL_PROP;
+				}
+				
+				//Boolean
+				else if (lex_word == "true" || lex_word == "false") {
+					lex_next = TK_BOOL;
+				}
+			}
+			else {
+				lex_next = TK_INVALID;
+				// maybe raise an error idk, dnh doesn't
+			}
+		}
+	}
+	
+	function _Lex_ScanNumber() {
+		let res = TK_REAL;
+		lex_realValue = 0;
+		
+		let ch = Lex_CurrentChar();
+		if (ch == '0' && Lex_PeekChar(1) == 'x') { // scan hexadecimal numbers
+			ch = Lex_NextChar();
+			ch = Lex_NextChar();
+			loop {
+				lex_realValue = lex_realValue * 16 + ((ch >= 'a') ? ch - 'a' + 10 : (ch >= 'A') ?
+					ch - 'A' + 10 : ch - '0');
+				ch = Lex_NextChar();
+				
+				if (!isxdigit(ch)) { break; }
+			}
+		}
+		else { // scan decimal numbers
+			loop {
+				lex_realValue = lex_realValue * 10.0 + (ch - '0');
+				ch = Lex_NextChar();
+				
+				if (!isdigit(ch)) { break; }
+			}
+
+			let ch2 = Lex_PeekChar(1);
+			if (ch == '.' && isdigit(ch2)) {
+				ch = Lex_NextChar();
+				let d = 1;
+				while (isdigit(ch)) {
+					d /= 10;
+					lex_realValue = lex_realValue + d * (ch - '0');
+					ch = Lex_NextChar();
+				}
+			}
+		}
+		return res;
+	}
+	
+	function _Lex_ScanWord(){
+		let res = TK_WORD;
+		let start = lex_index;
+		let end = start;
+		
+		let ch;
+		
+		while (true) {
+			ch = Lex_NextChar();
+			end = lex_index;
+			if (!(isalpha(ch) || ch == '_' || isdigit(ch))) {
+				break;
+			}
+		}
+		lex_word = lex_source[start..end];
+				
+		return res;
+	}
+	
+	// =======================================================================
+	// Parser
+	// =======================================================================
+
+	// contains the main chunk (the global scope)
+	let parser_main_chunk = Chunk_Create();
+	
+	let parser_chunks = [];
+	
+	function Parser_AddChunk(chunk) {
+		parser_chunks ~= [chunk];
+	}
+
+	// simple error raising function
+	function Parser_RaiseError(error) {
+		RaiseError("[Parser Error] " ~ error);
+	}
+	
+	// raises an error if the current token isn't tk
+	function Parser_AssertToken(tk) {
+		if (lex_next != tk) {
+			let error = "";
+			let expectedStr = _g_tokenNames[tk];
+			let gotStr = _g_tokenNames[lex_next];
+			error ~= "Error: expected " ~ expectedStr ~ " got " ~ gotStr;
+			Parser_RaiseError(error);
+		}
+	}
+	
+	// parentheses get their own function
+	function Parser_ParseParentheses(chunk) {
+		Parser_AssertToken(TK_OPEN_PAR);
+		Lex_Advance();
+		Parser_ParseExpression(chunk);
+		Parser_AssertToken(TK_CLOSE_PAR);
+		Lex_Advance();
+	}
+	
+	// this is basically an atom, it's the precedence level for literals
+	function Parser_ParseClause(chunk) {
+		if (lex_next == TK_REAL) {
+			Lex_Advance();
+			let index = Chunk_AddConst(chunk, lex_realValue);
+			Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_LOAD_CONST, index));
+		}else if(lex_next == TK_BOOL){
+			Lex_Advance();
+			//WriteLog(lex_word=="true");
+			let index = Chunk_AddConst(chunk, lex_word=="true" ? 1 : 0);
+			Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_LOAD_CONST, index));
+		}else if(lex_next == TK_VARIABLE){
+			let varname = lex_word;
+			Lex_Advance();
+			Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_LOAD_VAR, varname));
+		}else if(lex_next == TK_EPDL_PROP){
+			let keyword = lex_word;
+			Lex_Advance();
+			Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_EPDL_PROP, keyword));
+		}
+		else if (lex_next == TK_SIN || lex_next == TK_COS || lex_next == TK_TAN ) {
+			Parser_ParseTrigs(chunk);
+		}
+		else if (lex_next == TK_RAND) {
+			Parser_ParseRand(chunk);
+		}
+		else if (lex_next == TK_OPEN_PAR) {
+			Parser_ParseParentheses(chunk);
+		}
+		else {
+			Parser_RaiseError("Invalid expression.");
+		}
+	}
+	
+	function Parser_ParseTrigs(chunk){
+		let optype;
+		if (lex_next == TK_SIN) {
+			optype = 0;
+		}else if(lex_next == TK_COS) {
+			optype = 1;
+		}else if(lex_next == TK_TAN) {
+			optype = 2;
+		}
+		Lex_Advance();
+		
+		Parser_AssertToken(TK_OPEN_PAR);
+        Lex_Advance();
+		
+		Parser_ParseExpression(chunk);
+		
+		Parser_AssertToken(TK_CLOSE_PAR);
+        Lex_Advance();
+		
+		Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_TRIGS, optype));
+	}
+	
+	function Parser_ParseRand(chunk){
+		Parser_AssertToken(TK_RAND);
+        Lex_Advance();
+		
+		Parser_AssertToken(TK_OPEN_PAR);
+        Lex_Advance();
+		
+		Parser_ParseExpression(chunk);
+		
+		Parser_AssertToken(TK_COMMA);
+        Lex_Advance();
+		
+		Parser_ParseExpression(chunk);
+		
+		Parser_AssertToken(TK_CLOSE_PAR);
+        Lex_Advance();
+		
+		Chunk_AddInstruction(chunk, lex_line, Instruction_Create(OP_RAND));
+	}
+
+	// unary operations: currently only used for -
+	function Parser_ParsePrefix(chunk) {
+		if (lex_next == TK_MINUS) {
+			Lex_Advance();
+			Parser_ParsePrefix(chunk);
+			Chunk_AddInstruction(chunk, lex_line, Instruction_Create(OP_NEG));
+		}else if (lex_next == TK_NOT) {		
+			Lex_Advance();
+			Parser_ParsePrefix(chunk);
+			Chunk_AddInstruction(chunk, lex_line, Instruction_Create(OP_NOT));
+		}
+		else {
+			Parser_ParseClause(chunk);
+		}
+	}
+	
+	// * / %
+	function Parser_ParseMultiplicative(chunk) {
+		Parser_ParsePrefix(chunk);
+		
+		while (lex_next == TK_ASTERISK || lex_next == TK_SLASH || lex_next == TK_MOD) {
+			let operation = (lex_next == TK_ASTERISK) ? OP_MUL : (lex_next == TK_SLASH) ? OP_DIV : OP_MOD;
+			Lex_Advance();
+			Parser_ParsePrefix(chunk);
+			Chunk_AddInstruction(chunk, lex_line, Instruction_Create(operation));
+		}
+	}
+	
+	// + -
+	function Parser_ParseAdditive(chunk) {
+		Parser_ParseMultiplicative(chunk);
+		while (lex_next == TK_PLUS || lex_next == TK_MINUS) {
+			let operation = (lex_next == TK_PLUS) ? OP_ADD : OP_SUB;
+			Lex_Advance();
+			Parser_ParseMultiplicative(chunk);
+			Chunk_AddInstruction(chunk, lex_line, Instruction_Create(operation));
+		}
+	}
+
+
+	function Parser_ParseComparator(chunk){
+		Parser_ParseAdditive(chunk);
+		let operation;
+		
+        while (lex_next == TK_EQUAL || lex_next == TK_INEQUAL || lex_next == TK_GREATER || lex_next == TK_LESSER || lex_next == TK_GREATER_EQ || lex_next == TK_LESSER_EQ){
+            if(lex_next == TK_EQUAL){
+                operation = OP_EQ;
+            }else if(lex_next == TK_INEQUAL){
+                operation = OP_NEQ;
+            }else if(lex_next == TK_GREATER){
+                operation = OP_GTR;
+            }else if(lex_next == TK_LESSER){
+                operation = OP_LSR;
+            }else if(lex_next == TK_GREATER_EQ){
+                operation = OP_GTR_EQ;
+            }else if(lex_next == TK_LESSER_EQ){
+                operation = OP_LSR_EQ;
+			}
+            
+            Lex_Advance();
+            Parser_ParseAdditive(chunk);
+            //Add operation code chunk
+			Chunk_AddInstruction(chunk, lex_line, Instruction_Create(operation));
+		}
+            
+	}
+
+	// &&
+	function Parser_ParseLogicalAND(chunk){
+		Parser_ParseComparator(chunk);
+		while(lex_next == TK_AND){
+			Lex_Advance();
+			Parser_ParseComparator(chunk);
+			//TO DO: Add Chunk here
+			Chunk_AddInstruction(chunk, lex_line, Instruction_Create(OP_AND));
+		}
+	}
+
+	// ||
+	function Parser_ParseLogicalOR(chunk){
+		Parser_ParseLogicalAND(chunk);
+		while(lex_next == TK_OR){
+			Lex_Advance();
+			Parser_ParseLogicalAND(chunk);
+			//TO DO: Add Chunk here
+			Chunk_AddInstruction(chunk, lex_line, Instruction_Create(OP_OR));
+		}
+	}
+	
+	function Parser_ParseExpression(chunk) {
+		// the first function called here has the lowest precedence 
+		Parser_ParseLogicalOR(chunk);
+	}
+	
+	function Parser_ParseVariableAssignment(chunk, isdefinition){
+
+        Parser_AssertToken(TK_VARIABLE);
+        let variablename = lex_word;
+        Lex_Advance();
+
+        if(isdefinition){
+			Chunk_AddVariable(chunk, variablename);
+			//WriteLog(_g_tokenNames[lex_next]);
+
+            if (lex_next == TK_ASSIGNMENT){
+                Lex_Advance();
+                Parser_ParseExpression(chunk);
+				Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_SET_VAR, variablename));
+				
+				
+			}
+        }else{
+            Parser_AssertToken(TK_ASSIGNMENT);
+            Lex_Advance();
+            Parser_ParseExpression(chunk);
+			Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_SET_VAR, variablename));
+		}
+	}
+	
+	function Parser_ParseEPDL(chunk){
+		//Handle all EPDL-specific function
+		let funcname = lex_word;
+		
+		Parser_AssertToken(TK_EPDL_FUNC);
+        Lex_Advance();
+		
+		Parser_AssertToken(TK_OPEN_PAR);
+        Lex_Advance();
+		
+		let argCount = 0;
+		//Parse argument
+		while(lex_next!=TK_CLOSE_PAR){
+			
+			Parser_ParseExpression(chunk);
+			
+			argCount+=1;
+			
+			if(lex_next != TK_COMMA){
+				break;
+			}
+			
+			Parser_AssertToken(TK_COMMA);
+			Lex_Advance();
+		}
+		
+		Parser_AssertToken(TK_CLOSE_PAR);
+        Lex_Advance();
+		
+		//Add instructions
+		//WriteLog(funcname, argCount);
+		Chunk_AddInstruction(chunk, lex_line, Instruction_CreateAB(OP_EPDL, funcname, argCount));
+	}
+	
+	function Parser_ParseIf(chunk){
+		let jumpInstLines = []; //Keep the index of all the jump insntruction that needs to be patched 
+		
+		Parser_AssertToken(TK_IF);
+        Lex_Advance();
+		
+		Parser_AssertToken(TK_OPEN_PAR);
+        Lex_Advance();
+		
+		Parser_ParseExpression(chunk);
+		
+		Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_JIFN, Chunk_GetInstructionCount(chunk)+3));
+		
+		Parser_AssertToken(TK_CLOSE_PAR);
+        Lex_Advance();
+		
+		Parser_ParseBlock(chunk);
+		
+		jumpInstLines = jumpInstLines~[Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_JMP, -1))];
+		
+		while(lex_next == TK_ELIF){ //Consume all elif cases
+			Parser_AssertToken(TK_ELIF);
+			Lex_Advance();
+			
+			Parser_AssertToken(TK_OPEN_PAR);
+			Lex_Advance();
+			
+			Parser_ParseExpression(chunk);
+			
+			Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_JIFN, Chunk_GetInstructionCount(chunk)+3));
+			
+			Parser_AssertToken(TK_CLOSE_PAR);
+			Lex_Advance();
+			
+			Parser_ParseBlock(chunk);
+			
+			jumpInstLines = jumpInstLines~[Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_JMP, -1))];
+		}
+		
+		if(lex_next == TK_ELSE){
+			Parser_AssertToken(TK_ELSE);
+			Lex_Advance();
+			Parser_ParseBlock(chunk);
+		}
+		
+		let instructions = Chunk_GetInstructions(chunk);
+		let finalIDX =  Chunk_GetInstructionCount(chunk);
+		ascent(i in 0..length(jumpInstLines)){
+			let jumpidx = jumpInstLines[i];
+			instructions[jumpidx][1] = finalIDX;
+		}
+		Obj_SetValueInt(chunk, _V_CHUNK_INSTRUCTIONS, instructions);
+	}
+	
+	function Parser_ParseWhile(chunk){
+		let startWhileIndex = Chunk_GetInstructionCount(chunk);
+		let jindex;
+		
+		Parser_AssertToken(TK_WHILE);
+        Lex_Advance();
+		
+		Parser_AssertToken(TK_OPEN_PAR);
+        Lex_Advance();
+		
+		Parser_ParseExpression(chunk);
+		
+		jindex = Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_JIFN, -1));
+		
+		Parser_AssertToken(TK_CLOSE_PAR);
+        Lex_Advance();
+		
+		Parser_ParseBlock(chunk);
+		Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_JMP, startWhileIndex));
+		
+		//Patch the initial JIN instruction with the current line
+		let instructions = Chunk_GetInstructions(chunk);
+		instructions[jindex][1] = Chunk_GetInstructionCount(chunk);
+		Obj_SetValueInt(chunk, _V_CHUNK_INSTRUCTIONS, instructions);
+	}
+	
+	function Parser_ParseBlock(chunk){
+		 Parser_AssertToken(TK_OPEN_BRACE);
+		 Lex_Advance();
+		 
+		 let newChunk = Chunk_Create();
+		 Parser_AddChunk(newChunk);
+		 
+		 //Add all higher scope variables into this new chunk
+		 let varList = Chunk_GetVariableNameList(chunk);
+		 ascent(i in 0..length(varList)){
+			Chunk_AddVariable(newChunk, varList[i]);
+		 }
+		 
+		 while(lex_next!=TK_CLOSE_BRACE){
+			Parser_ParseStatements(newChunk);
+		 }
+		 
+		 Parser_AssertToken(TK_CLOSE_BRACE);
+		 Lex_Advance();
+		 
+		 Chunk_AddInstruction(chunk, lex_line, Instruction_CreateA(OP_CALL, newChunk));
+	}
+	
+	function Parser_ParseStatements(chunk){
+		if (lex_next == TK_PRINT) {
+				Lex_Advance();
+				Parser_AssertToken(TK_OPEN_PAR);
+				Lex_Advance();
+				Parser_ParseExpression(chunk);
+				Chunk_AddInstruction(chunk, lex_line, Instruction_Create(OP_PRINT));
+				Parser_AssertToken(TK_CLOSE_PAR);
+				Lex_Advance();
+		}else if (lex_next == TK_VARIABLE){
+			Parser_ParseVariableAssignment(chunk, false);
+		}else if (lex_next == TK_EPDL_FUNC){
+			Parser_ParseEPDL(chunk);
+		}else if (lex_next == TK_IF){
+			Parser_ParseIf(chunk);
+		}else if (lex_next == TK_WHILE){
+			Parser_ParseWhile(chunk);
+		}else if (lex_next == TK_LET){
+			Lex_Advance();
+			Parser_ParseVariableAssignment(chunk, true);
+		}else if (lex_next == TK_OPEN_BRACE){
+			Parser_ParseBlock(chunk);
+		}else if (lex_next == TK_INVALID){
+			Parser_RaiseError("Invalid Token Found.");
+		}else{
+			Lex_Advance();
+		}
+	}
+	
+	function Parser_ParseMain(chunk) {		
+		while (true) { 
+			if (lex_next == TK_END) {
+				break;
+			}else{
+				Parser_ParseStatements(chunk);
+			}
+		}
+	}
+	
+	// ========================================================================
+	// actual Parser_Main function starts here lol
+	
+	Parser_AddChunk(parser_main_chunk);
+	
+	Lex_Advance(); // scans the first token
+	Parser_ParseMain(parser_main_chunk);
+	
+	return parser_chunks;
+}

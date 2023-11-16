@@ -1,0 +1,133 @@
+// =======================================================================
+// Chunk
+//
+// This is just the bytecode for a single block
+// =======================================================================
+
+let _V_CHUNK_CONST_POOL = iota(0);
+let _V_CHUNK_INSTRUCTIONS = iota;
+let _V_CHUNK_LINES = iota;
+let _V_CHUNK_VARIABLES = iota;
+let _V_CHUNK_VARIABLES_LIST = iota; //Because dnh has no way to keep track of object value list
+
+function Chunk_Create() {
+	let res = ObjMesh_Create();
+	Obj_SetValueInt(res, _V_CHUNK_CONST_POOL, []);
+	Obj_SetValueInt(res, _V_CHUNK_INSTRUCTIONS, []);
+	Obj_SetValueInt(res, _V_CHUNK_LINES, []);
+	
+	let varTable = ObjMesh_Create();
+	
+	Obj_SetValueInt(res, _V_CHUNK_VARIABLES, varTable);
+	Obj_SetValueInt(res, _V_CHUNK_VARIABLES_LIST, []);
+	return res;
+}
+
+function Chunk_Delete(chunk) {
+	Obj_Delete(chunk);
+}
+
+function Chunk_AddConst(chunk, v) {
+	let current = Obj_GetValueInt(chunk, _V_CHUNK_CONST_POOL);
+	current ~= [v];
+	Obj_SetValueInt(chunk, _V_CHUNK_CONST_POOL, current);
+	return length(current) - 1;
+}
+
+function Chunk_AddInstruction(chunk, line, ins) {
+	let current = Obj_GetValueInt(chunk, _V_CHUNK_INSTRUCTIONS);
+	current ~= [ins];
+	Obj_SetValueInt(chunk, _V_CHUNK_INSTRUCTIONS, current);
+	Chunk_AddLine(chunk, line);
+	return length(current) - 1;
+}
+
+function Chunk_AddLine(chunk, line) {
+	let current = Obj_GetValueInt(chunk, _V_CHUNK_LINES);
+	current ~= [line];
+	Obj_SetValueInt(chunk, _V_CHUNK_LINES, current);
+	return length(current) - 1;
+}
+
+function Chunk_GetConst(chunk, index) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_CONST_POOL)[index];
+}
+
+function Chunk_GetLine(chunk, index) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_LINES)[index];
+}
+
+function Chunk_GetInstruction(chunk, index) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_INSTRUCTIONS)[index];
+}
+
+function Chunk_GetConstPool(chunk) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_CONST_POOL);
+}
+
+function Chunk_GetLines(chunk) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_LINES);
+}
+
+function Chunk_GetInstructions(chunk) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_INSTRUCTIONS);
+}
+
+function Chunk_GetInstructionCount(chunk) {
+	return length(Obj_GetValueInt(chunk, _V_CHUNK_INSTRUCTIONS));
+}
+
+//===Variable Supports========
+function Chunk_GetVariablePool(chunk) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_VARIABLES);
+}
+
+function Chunk_GetVariableNameList(chunk) {
+	return Obj_GetValueInt(chunk, _V_CHUNK_VARIABLES_LIST);
+}
+
+function Chunk_GetVariable(chunk, name) {
+	let varTable = Chunk_GetVariablePool(chunk);
+	
+	let varExists = Obj_IsValueExists(varTable, name);
+	
+	if(!varExists){
+		RaiseError("Error - Undefined Variable: ", name);
+	}
+	
+	let value = Obj_GetValue(varTable, name);
+	
+	if(value == VALUE_PLACEHOLDER){
+		RaiseError("Error - The variable ", name, " has no value.");
+	}
+	
+	return value;
+}
+
+let VALUE_PLACEHOLDER = -69420;
+
+task Chunk_AddVariable(chunk, name) {
+	let varTable = Chunk_GetVariablePool(chunk);
+	
+	if(Obj_IsValueExists(varTable, name)){
+		RaiseError("Error - Variable already exists: ", name);
+	}
+	
+	Obj_SetValue(varTable, name, VALUE_PLACEHOLDER);
+	
+	//Add the variable name into the list
+	let varList = Chunk_GetVariableNameList(chunk);
+	varList = varList~[name];
+	
+	Obj_SetValueInt(chunk, _V_CHUNK_VARIABLES_LIST, varList);
+}
+
+task Chunk_SetVariable(chunk, name, value) {
+	let varTable = Chunk_GetVariablePool(chunk);
+	
+	if(!Obj_IsValueExists(varTable, name)){
+		RaiseError("Error - Undefined Variable: ", name);
+	}
+	
+	Obj_SetValue(varTable, name, value);
+}

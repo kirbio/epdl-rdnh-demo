@@ -1,0 +1,12 @@
+move_shake(2, 1)
+wait(120);
+
+let $test = -1
+while($test<2){
+	shoot_single(4, 90+$test*30)
+	$test = $test+1
+}
+
+//swave_setfreq(8)
+wait(90)
+swave_setamplitude(60)

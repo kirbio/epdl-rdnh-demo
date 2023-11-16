@@ -1,0 +1,14 @@
+LD 420 #IF
+LD $test
+EQL
+JIFN A
+CALL (first block)
+JMP Y
+A:LD 421 #ELIF
+LD $test
+EQL
+JIFN B
+CALL (elif block)
+JMP Y
+B:CALL (else block)
+Y:

@@ -1,0 +1,10 @@
+//This file includes everything necessary for VM to run
+
+#include "../vm/token.dnh"
+#include "../vm/instruction.dnh"
+
+#include "../vm/parser.dnh"
+#include "../vm/chunk.dnh"
+#include "../vm/vm.dnh"
+
+#include "./lib_epdlfunc.dnh"

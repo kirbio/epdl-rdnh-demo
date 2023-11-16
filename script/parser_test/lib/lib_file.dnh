@@ -1,0 +1,56 @@
+let pathPatternFile = GetCurrentScriptDirectory()~"../pattern/";
+
+function ParseFile(path){
+	let objFile = ObjFile_Create(OBJ_FILE_TEXT);
+	let canOpen = ObjFile_Open(objFile, pathPatternFile~path);
+	
+	if(!canOpen){
+		RaiseError("Error - Cannot open file: ", path);
+	}
+	
+	//ObjFileB_SetCharacterCode(objFile, CODE_UTF8);
+	
+	let linecount = ObjFileT_GetLineCount(objFile);
+	
+	let parsedInfo = "";
+	
+	ascent(i in 0..linecount+1){
+		let linetext = ObjFileT_GetLineText(objFile, i);
+		//WriteLog(linetext);
+		if(length(linetext)>0 && linetext[0]!='#'){ //Comment
+			parsedInfo = parsedInfo~"\n"~linetext;
+		}
+	}
+	
+	Obj_Delete(objFile);
+	
+	return parsedInfo;
+}
+
+function GetAllAvailablePatternList(){
+	let objFile = ObjFile_Create(OBJ_FILE_TEXT);
+	let canOpen = ObjFile_Open(objFile, pathPatternFile~"pattern_list.txt");
+	
+	if(!canOpen){
+		RaiseError("Error - Cannot open the pattern list file.");
+	}
+	
+	//ObjFileB_SetCharacterCode(objFile, CODE_UTF8);
+	
+	let linecount = ObjFileT_GetLineCount(objFile);
+	
+	let parsedInfo = [];
+	
+	ascent(i in 0..linecount+1){
+		let linetext = ObjFileT_GetLineText(objFile, i);
+		//WriteLog(linetext);
+		if(length(linetext)>0 && linetext[0]!='#'){ //Comment
+			parsedInfo = parsedInfo~[linetext];
+		}
+	}
+	
+	Obj_Delete(objFile);
+	
+	return parsedInfo;
+
+}

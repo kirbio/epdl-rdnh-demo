@@ -1,0 +1,164 @@
+#TouhouDanmakufu[Player]
+#ScriptVersion[3]	
+#ID["Test Basic SHMUP Player"]
+#Title["SHMUP Player"]
+#Text["For use with[r]Thesis example only"]
+#ReplayName["SHMUP Player"]
+
+#include "./../lib/EV_const.dnh"
+
+let PLAYER_OX = STGFRAME_WIDTH/2;
+let PLAYER_OY = STGFRAME_HEIGHT-32;
+
+let deathBombFrame = 20;
+
+let objPlayer;
+
+let imgDir = GetCurrentScriptDirectory()~"../img/stage/";
+
+@Initialize
+{
+	objPlayer = GetPlayerObjectID();
+
+	SetPlayerSpeed(4, 2);
+	SetPlayerClip(12,12,STGFRAME_WIDTH-12,STGFRAME_HEIGHT-12);
+	SetPlayerDownStateFrame(60);
+	SetPlayerRebirthFrame(deathBombFrame);
+	
+	//SetPlayerItemAbsorbRadius(32);
+	SetPlayerItemIntersectionRadius(16);
+	SetPlayerAutoItemCollectLine(133);
+	
+	LoadPlayerShotData(GetCurrentScriptDirectory ~ "pl_shtdata.dnh");
+	
+	//SetItemBorderLine(133);
+	ObjPlayer_AddIntersectionCircleA1(objPlayer, 0, 0, 0, 25);
+	ObjMove_SetPosition(objPlayer,PLAYER_OX,PLAYER_OY);
+	
+	//InitAutoShot();
+	
+	HandleHitBox();
+	
+	TImage();
+	HandleShooting();
+	//TShot();
+	//HitBox(1);
+	//HitBox(-1);
+	//TMagicCircle;
+	//Orb;
+	//PlShotType;
+	
+	//Readjust Starting Position
+	
+}
+
+@MainLoop
+{
+	yield;
+
+}
+
+@Event{
+alternative(GetEventType())
+	case(EV_REQUEST_SPELL)
+	{
+		SetScriptResult(false);
+	}
+	case(EV_HIT)
+	{   
+		
+	}
+	case(EV_PLAYER_SHOOTDOWN)
+	{
+		
+	}
+	case(EV_PLAYER_REBIRTH)
+	{
+		SetPlayerRebirthFrame(20);
+	
+		SetPlayerInvincibilityFrame(180);
+		
+		//Readjust Player Respawn Position
+		ObjMove_SetPosition(GetPlayerObjectID,PLAYER_OX,PLAYER_OY);
+	}
+}
+
+let imgPlayer = imgDir~"player.png";
+
+task TImage(){
+	ObjPrim_SetTexture(objPlayer, imgPlayer);
+	Obj_SetRenderPriorityI(objPlayer,45);
+	ObjSprite2D_SetSourceRect(objPlayer, 0, 0, 64, 64);
+	ObjSprite2D_SetDestCenter(objPlayer);
+	ObjRender_SetScaleXYZ(objPlayer, 0.5, 0.5, 0);
+	//ObjRender_SetTextureFilter(objPlayer, FILTER_POINT);
+}
+
+let f = 0;
+
+task HandleShooting(){
+	loop{
+		while(GetPlayerState == STATE_NORMAL){
+		
+			if(GetVirtualKeyState(VK_SHOT)==KEY_HOLD){
+				
+				f++;
+				if(f>5){
+					
+					CreatePlayerShot(GetPlayerX, GetPlayerY);
+					
+					f=0;
+				}
+				
+			}else if(f>0){
+				f = 0;
+			}
+			
+			yield;
+		}
+		while(GetPlayerState != STATE_NORMAL){
+			yield;
+		}
+	}
+}
+
+task CreatePlayerShot(x, y){
+	let obj = CreatePlayerShotA1(x, y, 10, 270, 1, 1, 1);
+}
+
+task HandleHitBox(){
+	let objHitbox = ObjPrim_Create(OBJ_SPRITE_2D);
+	ObjPrim_SetTexture(objHitbox, imgPlayer);
+	Obj_SetRenderPriorityI(objHitbox,51);
+	ObjSprite2D_SetSourceRect(objHitbox, 64, 0, 128, 64);
+	ObjSprite2D_SetDestCenter(objHitbox);
+	ObjRender_SetScaleXYZ(objHitbox, 0.5, 0.5, 0);
+	
+	let isShow = false;
+	Obj_SetVisible(objHitbox, false);
+	loop{
+		while(GetPlayerState == STATE_NORMAL){
+		
+			if(GetVirtualKeyState(VK_SLOWMOVE)==KEY_HOLD){
+				if(!isShow){
+					isShow = true;
+					Obj_SetVisible(objHitbox, true);
+				}
+				ObjRender_SetPositionO(objHitbox, objPlayer);
+			}else{
+				if(isShow){
+					isShow = false;
+					Obj_SetVisible(objHitbox, false);
+				}
+			}
+		
+			yield;
+		}
+		isShow = false;
+		Obj_SetVisible(objHitbox, false);
+		while(GetPlayerState != STATE_NORMAL){
+			yield;
+		}
+	}
+	
+}

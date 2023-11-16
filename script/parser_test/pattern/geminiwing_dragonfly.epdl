@@ -1,0 +1,26 @@
+set_position(30, 0)
+move_straight(3, 90)
+wait(90);
+
+let $xcenter = 192
+let $ypos = SELF_Y
+let $ycenter = SELF_Y
+let $yamplitude = ($ypos-180)
+
+let $phase = 0
+
+let $time = 560
+while($time>0){
+
+	if($ycenter>180){
+		$ycenter = $ycenter-1
+	}
+
+	set_position($xcenter-162*cos($phase*0.5), $ycenter+$yamplitude*sin($phase))
+
+	$phase = $phase+3
+	$time = $time-1
+	wait(1)
+}
+
+move_quadratic(192-SELF_X, 180, 1.5, 0)

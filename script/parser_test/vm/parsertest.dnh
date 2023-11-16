@@ -1,0 +1,52 @@
+#TouhouDanmakufu[Package]
+#Title["File Reader Test"]
+#Text[""]
+//Player["./player/pl00.dnh"]
+//dump "./output_file.txt" //For dumping bytecodes
+
+
+@Initialize
+{
+	ParseFile();
+}
+
+
+@MainLoop
+{
+	if(GetKeyState(KEY_ESCAPE)==1){
+		ClosePackage();
+	}
+	
+	yield;
+}
+
+@Finalize
+{
+}
+
+@Event
+{
+
+}
+let pathInfo = GetCurrentScriptDirectory()~"./file.txt";
+function ParseFile(path){
+	let objFile = ObjFile_Create(OBJ_FILE_TEXT);
+	ObjFile_Open(objFile, path);
+	//ObjFileB_SetCharacterCode(objFile, CODE_UTF8);
+	
+	let linecount = ObjFileT_GetLineCount(objFile);
+	
+	let parsedInfo = "";
+	
+	ascent(i in 0..linecount+1){
+		let linetext = ObjFileT_GetLineText(objFile, i);
+		//WriteLog(linetext);
+		if(length(linetext)>0 && linetext[0]!='#'){ //Comment
+			parsedInfo = parsedInfo~"\n"~linetext;
+		}
+	}
+	
+	Obj_Delete(objFile);
+	
+	return parsedInfo;
+}

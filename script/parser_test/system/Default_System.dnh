@@ -1,0 +1,129 @@
+#include "./../lib/EV_const.dnh"
+#include "./../lib/ResizedFunctions.dnh"
+
+let FONT_MENU = "Noto Sans JP";
+let FONT_MENU_URL = GetCurrentScriptDirectory~"./../font/notosans-jp-bold.otf";
+
+@Initialize
+{
+	/*if(!GetCommonData("MusicSystem",false)){
+		StartScript(LoadScriptInThread(GetCurrentScriptDirectory ~ "../scene/Sounds.dnh"));
+	}
+	StartScript(LoadScriptInThread(GetCurrentScriptDirectory ~ "../scene/Effects.dnh"));
+	if(GetOptionSnapper>0){
+		StartScript(LoadScriptInThread(GetCurrentScriptDirectory ~ "../lib/Snapper.dnh"));
+	}*/
+	//StartShotScript(GetCurrentScriptDirectory ~ "../scene/ShotControls.dnh");
+	//StartItemScript(GetCurrentScriptDirectory~"./../lib/Item.dnh");
+	
+	LoadEnemyShotData(GetCurrentScriptDirectory ~ "../lib/enm_shtdata.dnh");
+	//}
+	
+	if(!IsCommonDataAreaExists("Gameplay")){
+		CreateCommonDataArea("Gameplay");
+	}
+	
+	//=======================================================================
+	SetPauseScriptPath(GetCurrentScriptDirectory ~ "Default_Pause.dnh");
+	SetEndSceneScriptPath(GetCurrentScriptDirectory ~"Default_EndScene.dnh");
+	SetCommonData("systemID",GetOwnScriptID);
+	
+	SetItemRenderPriorityI(GetShotRenderPriorityI-1);
+	
+	InitFrame();
+	
+	CallHUD();
+	TCurrentFps();
+}
+
+task CallHUD(){
+	wait(2);
+}
+
+@MainLoop
+{
+	yield;
+}
+
+@Event
+{
+	alternative(GetEventType())
+	
+	
+}
+
+task InitFrame()
+{
+
+	StgFrame;
+	/*if(IsShowDiffAnimation){
+		Difficulty(30,0);
+	}else{
+		Difficulty(0,1);
+	}*/
+	
+	yield;
+	
+	Set2DCameraRatio(2); 
+	Set2DCameraFocusX(192);
+	Set2DCameraFocusY(224);
+	//FadeHUDIn;
+
+	
+	task StgFrame{
+		
+		let obj = ObjPrim_Create(OBJ_SPRITE_2D);
+		Obj_SetRenderPriority(obj, 0);
+		ObjRender_SetAlpha(obj,255);
+		
+		
+		ObjPrim_SetTexture(obj, GetCurrentScriptDirectory() ~ "../img/system/stgframe.png");
+		ObjSprite2D_SetSourceRect(obj, 0, 0, 1280, 960);
+		ObjSprite2D_SetDestRect(obj, 0, 0, 1280, 960);
+		SetStgFrame(128*2, 16*2, 512*2, 464*2, 20, 80);
+		
+		yield;
+		
+		SetPlayerClip(16, 16, 384-16, 448-16);
+		SetShotAutoDeleteClipEX(64,64,64,64);
+		SetItemAutoDeleteClipEX(64,4096,64,64);
+	}
+}
+
+//----------------------------------------------------
+//FPS Counter
+//----------------------------------------------------
+task TCurrentFps()
+{
+	let objText = ObjText_Create();
+	ObjText_SetFontType(objText, FONT_MENU );
+	ObjText_SetFontSize(objText, 20);
+	//ObjText_SetFontBold(objText, true);
+	ObjText_SetFontColorTop(objText, 255, 255, 255);
+	ObjText_SetFontColorBottom(objText, 255, 255, 255);
+	ObjText_SetFontBorderType(objText, BORDER_FULL);
+	ObjText_SetFontBorderColor(objText,0, 0, 0);
+	ObjText_SetFontBorderWidth(objText, 4);
+	ObjText_SetHorizontalAlignment(objText, ALIGNMENT_RIGHT);
+	ObjText_SetMaxWidth(objText, GetScreenWidth() - 4);
+	Obj_SetRenderPriority(objText, 1.0);
+	ObjRender_SetX(objText, 0);
+	ObjRender_SetY(objText, GetScreenHeight() - 28);
+
+	loop
+	{
+		let fps = GetCurrentFps();
+		let text = vtos("1.2f", fps) ~ " fps";
+		ObjText_SetText(objText, text);
+		yield;
+	}
+}
+
+function SetShotAutoDeleteClipEX(l, t, r, b){
+	SetShotAutoDeleteClip(l, t, 384 - GetStgFrameWidth + r, 448 - GetStgFrameHeight + b);
+}
+
+function SetItemAutoDeleteClipEX(l, t, r, b){
+	SetItemAutoDeleteClip(l, t, 384 - GetStgFrameWidth + r, 448 - GetStgFrameHeight + b);
+}
+

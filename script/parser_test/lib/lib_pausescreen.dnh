@@ -1,0 +1,68 @@
+let pathShader = GetCurrentScriptDirectory()~"/shader/alphareset.txt";
+
+task TBackground
+{	
+	let width = GetStgFrameWidth();
+	let height =GetStgFrameHeight();
+	
+	let left = GetStgFrameLeft();
+	let top = GetStgFrameTop();
+	
+	let target = GetTransitionRenderTargetName();
+	
+	let objFrame = ObjPrim_Create(OBJ_SPRITE_2D);
+	ObjPrim_SetTexture(objFrame,target);
+	Obj_SetRenderPriorityI(objFrame, 0);
+	ObjSprite2D_SetSourceRect(objFrame,0,0,GetScreenWidth,GetScreenHeight);
+	ObjSprite2D_SetDestRect(objFrame,0,0,GetScreenWidth,GetScreenHeight);
+	ObjShader_SetShaderF(objFrame,pathShader);
+	ObjShader_SetTechnique(objFrame,"TecShad");
+	
+	let TEMPTARGET_BLUR = "tempBlur";
+	CreateRenderTarget(TEMPTARGET_BLUR);
+	
+	let objPlayfield = ObjPrim_Create(OBJ_SPRITE_2D);
+	ObjPrim_SetTexture(objPlayfield,target);
+	Obj_SetRenderPriorityI(objPlayfield, 1);
+	ObjSprite2D_SetSourceRect(objPlayfield,left, top, left+width, top+height);
+	ObjSprite2D_SetDestRect(objPlayfield,0,0,width*0.5,height*0.5);
+	ObjShader_SetShaderF(objPlayfield,pathShader);
+	ObjShader_SetTechnique(objPlayfield,"TecShad");
+	
+	RenderToTextureB1(TEMPTARGET_BLUR, objPlayfield, false);
+	//yield;
+	Obj_Delete(objPlayfield);
+	
+	objPlayfield = ObjPrim_Create(OBJ_SPRITE_2D);
+	ObjPrim_SetTexture(objPlayfield,TEMPTARGET_BLUR);
+	Obj_SetRenderPriorityI(objPlayfield, 0);
+	ObjSprite2D_SetSourceRect(objPlayfield,0,0,width*0.5,height*0.5);
+	ObjSprite2D_SetDestRect(objPlayfield,0,0,width+2,height+2);
+	ObjRender_SetPosition(objPlayfield,left-1,top-1,1);
+	ObjRender_SetColor(objPlayfield,144*0.5,247*0.5,192*0.5);
+	TPlayfieldFadeIn;
+	//ObjShader_SetShaderF(objPlayfield,pathShader);
+	//ObjShader_SetTechnique(objPlayfield,"TecShad");
+	
+
+	
+	/*ascent(ix in 0.. countH)
+	{
+		ascent(iy in 0.. countV)
+		{
+			let index = (ix + iy * countH) * 6;
+			let left = ix * width;
+			let right = left + width;
+			let top = iy * height;
+			let bottom = top + height;
+			TVertex(index, left, top, right, bottom);
+		}
+	}*/
+	
+	task TPlayfieldFadeIn{
+		ascent(i in 0..16){
+		ObjRender_SetAlpha(objPlayfield,i*255/15);
+		yield;
+		}
+	}
+}

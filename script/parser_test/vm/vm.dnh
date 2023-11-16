@@ -1,0 +1,335 @@
+// ========================================================================
+// Virtual Machine
+// ========================================================================
+
+//Placeholder "invalid" value, to be replaced with null
+let VALUE_INVALID = -69420;
+
+function VM_Execute(chunk, obj) {		
+
+	let instructions = Chunk_GetInstructions(chunk);
+	let constants = Chunk_GetConstPool(chunk);
+	let variables = Chunk_GetVariablePool(chunk);
+	
+	let program_size = length(instructions);
+	
+	let MAX_STACK_SIZE = 256;
+	let stack = CreateArray(MAX_STACK_SIZE);
+
+	let op;
+	let ins;
+	
+	let ip = 0;
+	let top = -1;
+	
+	function Push(value) {
+		assert(top < MAX_STACK_SIZE - 1, "Stack overflow");
+		top++;
+		stack[top] = value;
+	}
+	
+	function Pop() {
+		assert(top != -1, "Stack underflow");
+		let res = stack[top];
+		top--;
+		return res;
+	}
+	
+	while(Obj_Exists(obj)) {
+		ins = instructions[ip++];
+		op = Instruction_GetOp(ins);
+		
+		/*WriteLog(ip-1, DisassembleInstruction(ins));
+		
+		if(ip>=length(instructions)){
+			return VALUE_INVALID; //always return nothing
+		}
+		continue;*/
+		
+		if (op == OP_LOAD_CONST) {
+			Push(constants[Instruction_GetArgA(ins)]);
+		}
+		
+		//Vairables
+		else if (op == OP_LOAD_VAR) {
+			Push(Chunk_GetVariable(chunk, Instruction_GetArgA(ins)));
+		}
+		else if (op == OP_SET_VAR) {
+			let topstack = Pop();
+			Chunk_SetVariable(chunk, Instruction_GetArgA(ins), topstack);
+		}
+		
+		//Arithmatic
+		else if (op == OP_NEG) {
+			stack[top] = -stack[top];
+		}
+		else if (op == OP_ADD) {
+			top--;
+			stack[top] = stack[top] + stack[top + 1];
+		}
+		else if (op == OP_SUB) {
+			top--;
+			stack[top] = stack[top] - stack[top + 1];
+		}
+		else if (op == OP_MUL) {
+			top--;
+			stack[top] = stack[top] * stack[top + 1];
+		}
+		else if (op == OP_DIV) {
+			top--;
+			stack[top] = stack[top] / stack[top + 1];
+		}
+		else if (op == OP_MOD) {
+			top--;
+			stack[top] = stack[top] % stack[top + 1];
+		}
+		else if (op == OP_POW) {
+			top--;
+			let top = stack[top];
+			stack[top] = top ** stack[top + 1];
+		}
+		
+		//Comparator
+		else if (op == OP_EQ) {
+			top--;
+			stack[top] = stack[top] == stack[top + 1];
+		}
+		else if (op == OP_NEQ) {
+			top--;
+			stack[top] = stack[top] != stack[top + 1];
+		}
+		else if (op == OP_GTR) {
+			top--;
+			stack[top] = stack[top] > stack[top + 1];
+		}
+		else if (op == OP_LSR) {
+			top--;
+			stack[top] = stack[top] < stack[top + 1];
+		}
+		else if (op == OP_GTR_EQ) {
+			top--;
+			stack[top] = stack[top] >= stack[top + 1];
+		}
+		else if (op == OP_LSR_EQ) {
+			top--;
+			stack[top] = stack[top] <= stack[top + 1];
+		}
+		
+		//Logical
+		else if (op == OP_AND) {
+			top--;
+			stack[top] = stack[top] && stack[top + 1];
+		}
+		else if (op == OP_OR) {
+			top--;
+			stack[top] = stack[top] || stack[top + 1];
+		}
+		else if (op == OP_NOT) {
+			stack[top] = !stack[top];
+		}
+		
+		//Other Misc Stuff
+		else if (op == OP_TRIGS) {
+			
+			let optype = Instruction_GetArgA(ins);
+			
+			alternative(optype)
+			case(0){
+				stack[top] = sin(stack[top]);
+			}
+			case(1){
+				stack[top] = cos(stack[top]);
+			}
+			case(2){
+				stack[top] = tan(stack[top]);
+			}
+			others{
+				RaiseError("Error- Invalid Trigonometric Function Type: ", optype );
+			}
+			
+		}
+		else if (op == OP_RAND) {
+			top--;
+			stack[top] = rand(stack[top], stack[top + 1]);
+		}
+		
+		//Function Call
+		else if(op == OP_CALL){
+		
+			
+		
+			let newChunk = Instruction_GetArgA(ins);
+			
+			
+			
+			//Push all current variables into the new chunk
+			let varList = Chunk_GetVariableNameList(chunk);
+			 
+			ascent(i in 0..length(varList)){
+				Chunk_SetVariable(newChunk, varList[i], Chunk_GetVariable(chunk, varList[i]));
+			}
+		
+			let res = VM_Execute(newChunk, obj);
+			if(res!=VALUE_INVALID){
+				Push(res); //push the running result to the top stack
+			}
+			
+			//Update all the variables back into the main chunk
+			ascent(i in 0..length(varList)){
+				Chunk_SetVariable(chunk, varList[i], Chunk_GetVariable(newChunk, varList[i]));
+			}
+		}
+		
+		//Jump
+		else if(op == OP_JMP){
+			ip = Instruction_GetArgA(ins);
+		}
+		else if(op == OP_JIF){
+			let topCheck = Pop();
+			if(topCheck){
+				ip = Instruction_GetArgA(ins);
+			}
+		}
+		else if(op == OP_JIFN){
+			let topCheck = Pop();
+			if(!topCheck){
+				ip = Instruction_GetArgA(ins);
+			}
+		}
+		
+		//EPDL-specific stuff
+		else if (op == OP_EPDL_PROP) { //Accessing certain EPDL-specific property and push it to the top stack
+			let propName = Instruction_GetArgA(ins);
+			
+			WriteLog("aaaaa", propName);
+			
+			alternative(propName)
+			case("PLAYER_X"){
+				Push(GetPlayerX());
+			}
+			case("PLAYER_Y"){
+				Push(GetPlayerY());
+			}
+			case("SELF_X"){
+				WriteLog("the stack", stack);
+				
+				Push(ObjMove_GetX(obj));
+			}
+			case("SELF_Y"){
+				WriteLog("the stack", stack);
+				
+				Push(ObjMove_GetY(obj));
+				
+				WriteLog("the stack", stack);
+			}
+			case("SELF_ANGLE"){
+				Push(ObjMove_GetAngle(obj));
+			}
+			case("ANG_TO_PLAYER"){
+				Push(GetAngleToPlayer(obj));
+			}
+
+		}
+		else if (op == OP_EPDL) { //Call certain built-in EPDL Functions
+			let funcName = Instruction_GetArgA(ins);
+			let argCount = Instruction_GetArgB(ins);
+		
+			let argList = [];
+			
+			ascent(i in 0..argCount){ //TO DO: Think on how to reverse this without the second reverse loop
+				argList = argList ~ [Pop()];
+			}
+			
+			WriteLog("[FuncName]",funcName);
+			WriteLog("[ArgList]",argList);
+			
+			alternative(funcName)
+			case("move_straight"){
+				EPDL_MoveStraight(obj, argList[1], argList[0]);
+			}
+			case("move_sinewave"){
+				EPDL_MoveSineWave(obj, argList[3], argList[2], argList[1], argList[0]);
+			}
+			case("move_homing"){
+				EPDL_MoveHoming(obj, argList[1], argList[0]);
+			}
+			
+			case("move_bezier_quadratic"){
+				EPDL_MoveBezier_Quadratic(obj, argList[4], argList[3], argList[2], argList[1], argList[0]);
+			}
+			case("move_bezier_cubic"){
+				EPDL_MoveBezier_Cubic(obj, argList[6], argList[5], argList[4], argList[3], argList[2], argList[1], argList[0]);
+			}
+			case("move_quadratic"){
+				let type = argList[0];
+			
+				if(type){
+					EPDL_MoveQuadratic_H(obj, argList[3], argList[2], argList[1]);
+				}else{
+					EPDL_MoveQuadratic_V(obj, argList[3], argList[2], argList[1]);
+				}
+				
+			}
+			case("move_trajectory"){
+				EPDL_MoveTrajectory(obj, argList[5], argList[4], argList[3], argList[2], argList[1], argList[0]);
+			}
+			case("move_circle"){
+				EPDL_MoveCircle(obj, argList[2], argList[1], argList[0]);
+			}
+			case("move_reflect"){
+				EPDL_MoveReflect(obj, argList[1], argList[0]);
+			}
+			case("move_shake"){
+				EPDL_MoveShake(obj, argList[1], argList[0]);
+			}
+			
+			case("set_position"){
+				EPDL_SetPosition(obj, argList[1], argList[0]);
+			}
+			
+			
+			case("swave_setamplitude"){
+				EPDL_SetAmplitude(obj, argList[0]);
+			}
+			case("swave_setfreq"){
+				EPDL_SetFreq(obj, argList[0]);
+			}
+			
+			case("circ_setradius"){
+				EPDL_SetRadius(obj, argList[0]);
+			}
+			case("circ_setangvelocity"){
+				EPDL_SetAngularVelocity(obj, argList[0]);
+			}
+			case("circ_setcenx"){
+				EPDL_SetCenterX(obj, argList[0]);
+			}
+			case("circ_setceny"){
+				EPDL_SetCenterY(obj, argList[0]);
+			}
+			
+			case("shoot_single"){
+				EPDL_Shoot_Single(obj, argList[1], argList[0]);
+			}
+			case("shoot_ring"){
+				EPDL_Shoot_Ring(obj, argList[2], argList[1], argList[0]);
+			}
+			case("wait"){
+				wait(argList[0]);
+			}
+			
+		}
+		
+		
+		else if (op == OP_PRINT) {
+			WriteLog("[Print]",Pop());
+			//return;
+		}
+		
+		//Terminate program once instructions ran out
+		if(ip>=length(instructions)){
+			return VALUE_INVALID; //always return nothing
+		}
+		//yield;
+	}
+}

@@ -1,0 +1,10 @@
+shot_image  = "./../img/stage/enemyshot.png"
+
+ShotData
+{
+	id = 1 // vanilla 
+	render = ALPHA
+	rect = (0, 0, 32, 32) 
+	alpha=255
+	collision = 4
+}

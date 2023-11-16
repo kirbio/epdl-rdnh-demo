@@ -1,0 +1,77 @@
+#TouhouDanmakufu[Package]
+#ScriptVersion[3]
+#Title["Parsing Test"]
+#System[""]
+
+
+#include "./token.dnh"
+#include "./instruction.dnh"
+
+#include "./parser.dnh"
+#include "./chunk.dnh"
+#include "./vm.dnh"
+
+@Initialize {
+	TMain();
+}
+
+@MainLoop {
+
+	if(GetKeyState(KEY_ESCAPE)==KEY_PUSH){
+		ClosePackage();
+	}
+
+	yield;
+}
+
+@Finalize {
+	WriteLog("Finalize");
+}
+
+task TMain() {	
+	yield;
+	
+	let mainCode = ParseFile(pathFile);
+
+	let bytecodeChunks = Parser_Main(mainCode);
+	
+	
+	
+	/*ascent(i in 0..length(bytecodeChunks)){
+		let instructions = Chunk_GetInstructions(bytecodeChunks[i]);
+		
+		ascent(j in 0..length(instructions)){
+			WriteLog(DisassembleInstruction(instructions[j]));
+		}
+	}*/
+	
+	if (length(bytecodeChunks) != 0) {
+		// hardcode executing only the main chunk?
+		VM_Execute(bytecodeChunks[0]);
+	}
+}
+
+//========================================================================
+let pathFile = GetCurrentScriptDirectory()~"./file.txt";
+function ParseFile(path){
+	let objFile = ObjFile_Create(OBJ_FILE_TEXT);
+	ObjFile_Open(objFile, path);
+	//ObjFileB_SetCharacterCode(objFile, CODE_UTF8);
+	
+	let linecount = ObjFileT_GetLineCount(objFile);
+	
+	let parsedInfo = "";
+	
+	ascent(i in 0..linecount+1){
+		let linetext = ObjFileT_GetLineText(objFile, i);
+		//WriteLog(linetext);
+		if(length(linetext)>0 && linetext[0]!='#'){ //Comment
+			parsedInfo = parsedInfo~"\n"~linetext;
+		}
+	}
+	
+	Obj_Delete(objFile);
+	
+	return parsedInfo;
+}
+

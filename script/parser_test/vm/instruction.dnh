@@ -1,0 +1,125 @@
+// =======================================================================
+// Instruction
+// =======================================================================
+
+let OP_NEG = iota(0);
+let OP_ADD = iota;
+let OP_SUB = iota;
+let OP_MUL = iota;
+let OP_DIV = iota;
+let OP_MOD = iota;
+let OP_POW = iota;
+
+let OP_EQ = iota;
+let OP_NEQ = iota;
+let OP_GTR = iota;
+let OP_LSR = iota;
+let OP_GTR_EQ = iota;
+let OP_LSR_EQ = iota;
+
+let OP_AND = iota;
+let OP_OR = iota;
+let OP_NOT = iota;
+
+let OP_LOAD_CONST = iota;
+
+let OP_SET_VAR = iota;
+let OP_LOAD_VAR = iota;
+
+let OP_JMP = iota;
+let OP_JIF = iota; 
+let OP_JIFN = iota;
+
+let OP_CALL = iota;
+
+let OP_PRINT = iota;
+
+let OP_TRIGS = iota;
+let OP_RAND = iota;
+
+let OP_EPDL = iota;
+let OP_EPDL_PROP = iota;
+
+let _g_opNames = [
+	"NEG",
+	"ADD",
+	"SUB",
+	"MUL",
+	"DIV",
+	"MOD",
+	"POW",
+	
+	"EQL",
+	"NEQL",
+	"GTR",
+	"LSR",
+	"GTR_EQ",
+	"LSR_EQ",
+	
+	"AND",
+	"OR",
+	"NOT",
+	
+	"LOAD_CONST",
+	
+	"SET_VAR",
+	"LOAD_VAR",
+	
+	"JMP",
+	"JIF",
+	"JIFN",
+	
+	"CALL",
+	
+	"PRINT",
+	
+	"TRIGS",
+	"RAND",
+	
+	"EPDL",
+	"EPDL_PROP",
+];
+
+function Instruction_Create(op) {
+	return [op];
+}
+
+function Instruction_CreateA(op, argA) {
+	return [op, argA];
+}
+
+function Instruction_CreateAB(op, argA, argB) {
+	return [op, argA, argB];
+}
+
+function Instruction_GetOp(ins) {
+	return ins[0];
+}
+
+function Instruction_GetArgA(ins) {
+	return ins[1];
+}
+
+function Instruction_GetArgB(ins) {
+	return ins[2];
+}
+
+// for debugging
+function DisassembleInstruction(ins) {
+	let op = Instruction_GetOp(ins);
+	let len = length(ins);
+	
+	if (len == 1) {
+		return _g_opNames[op];
+	}
+	else if (len == 2) {
+		return _g_opNames[op] ~ " (" ~ itoa(Instruction_GetArgA(ins)) ~ ")";
+	}
+	else if (len == 3) {
+		return _g_opNames[op] ~ " (" ~ itoa(Instruction_GetArgA(ins)) ~ ", " ~ Instruction_GetArgB(ins) ~ ")";
+	}
+	else {
+		//return _g_opNames[op];
+		RaiseError("Failed to disassemble instruction, len: " ~ itoa(len));
+	}
+}

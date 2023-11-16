@@ -1,0 +1,9 @@
+let $test = 0
+move_straight(2,$test, $test+3)
+wait(120)
+move_quadratic(-30, 60, 2, 0)
+while($test<5){
+	$test = $test+1
+	print($test)
+}
+print(99999)

@@ -1,0 +1,11 @@
+shot_image  = "./../img/stage/playershot.png"
+
+//============Reimu===============
+ShotData
+{
+	id = 1 // vanilla 
+	render = ALPHA
+	rect = (0, 0, 32, 32) 
+	alpha=192
+	collision = 32
+}

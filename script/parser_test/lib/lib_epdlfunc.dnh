@@ -1,0 +1,364 @@
+//Constants
+let VALUE_MOVETYPE = iota(0);
+let VALUE_AMPLITUDE = iota;
+let VALUE_FREQ = iota;
+let VALUE_RADIUS = iota;
+let VALUE_ANGV = iota;
+let VALUE_XPOS = iota;
+let VALUE_YPOS = iota;
+
+let MOVETYPE_STRAIGHT = iota(0);
+let MOVETYPE_SINE = iota;
+let MOVETYPE_HOMING = iota;
+let MOVETYPE_BEZIER_2 = iota;
+let MOVETYPE_BEZIER_3 = iota;
+let MOVETYPE_QUADRATIC_H = iota;
+let MOVETYPE_QUADRATIC_V = iota;
+let MOVETYPE_TRAJECTORY = iota;
+let MOVETYPE_CIRCLE = iota;
+
+let MOVETYPE_SHAKE = iota;
+let MOVETYPE_REFLECT = iota;
+
+let MOVETYPE_NONE = iota;
+
+task EPDL_MoveStraight(obj, speed, angle){
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_STRAIGHT);
+
+	ObjMove_SetSpeed(obj, speed);
+	ObjMove_SetAngle(obj, angle);
+}
+
+task EPDL_MoveSineWave(obj, yspeed, phase, amplitude, frequency){
+
+	let xshift = amplitude*sin(phase);
+
+	let xcenter = ObjMove_GetX(obj)-xshift;
+	
+	ObjMove_SetSpeed(obj, yspeed);
+	ObjMove_SetAngle(obj, 90);
+	
+	let r = amplitude;
+	let ang = phase;
+	let f = frequency;
+	
+	Obj_SetValueInt(obj, VALUE_AMPLITUDE, r);
+	Obj_SetValueInt(obj, VALUE_FREQ, f); 
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_SINE);
+	
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_SINE){
+		r = Obj_GetValueInt(obj, VALUE_AMPLITUDE);
+		f = Obj_GetValueInt(obj, VALUE_FREQ); 
+		
+		ObjMove_SetX(obj, xcenter + r*sin(ang));
+		
+		ang += f;
+		
+		//WriteLog("aa");
+		yield;
+	}
+	Obj_SetValueInt(obj, VALUE_AMPLITUDE, 0);
+	Obj_SetValueInt(obj, VALUE_FREQ, 0); 
+}
+
+task EPDL_SetAmplitude(obj, amp){
+	Obj_SetValueInt(obj, VALUE_AMPLITUDE, amp);
+}
+
+task EPDL_SetFreq(obj, f){
+	Obj_SetValueInt(obj, VALUE_FREQ, f); 
+}
+
+task EPDL_MoveHoming(obj, speed, duration){
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_HOMING);
+	
+	ObjMove_SetSpeed(obj, speed);
+	
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_HOMING && duration>0){
+	
+		ObjMove_SetAngle(obj, GetAngleToPlayer(obj));
+	
+		duration-=1;
+		yield;
+	}
+	if(duration<=0){
+		Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_STRAIGHT);
+	}
+	
+	
+}
+
+//For Bezier functions, all positions parameters are relative to the current position the object when the command was called
+task EPDL_MoveBezier_Quadratic(obj, xb, yb, xc, yc, time){
+
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_BEZIER_2);
+	
+	ObjMove_SetSpeed(obj, 0);
+
+	//Implementation is based completely off the formula from wikipedia, it simply interpolates along the line according to the formula
+
+	let p0x = ObjMove_GetX(obj);
+	let p0y = ObjMove_GetY(obj);
+	let p1x = p0x + xb;
+	let p1y = p0y + yb;
+	let p2x = p0x + xc;
+	let p2y = p0y + yc;
+	
+	let cx;
+	let cy;
+	let t;
+	
+	let d = 1/time;
+	
+	while(Obj_Exists(obj) && time>0 && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_BEZIER_2){
+	
+		t = 1-(time*d);
+	
+		cx = p1x + (1-t)**2*(p0x-p1x)+t**2*(p2x-p1x);
+		cy = p1y + (1-t)**2*(p0y-p1y)+t**2*(p2y-p1y);
+		
+		ObjMove_SetPosition(obj, cx, cy);
+	
+		time-=1;
+		yield;
+	}
+	
+}
+
+task EPDL_MoveBezier_Cubic(obj, xb, yb, xc, yc, xd, yd, time){
+
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_BEZIER_3);
+	ObjMove_SetSpeed(obj, 0);
+
+	//Implementation is based completely off the formula from wikipedia, it simply interpolates along the line according to the formula
+
+	let p0x = ObjMove_GetX(obj);
+	let p0y = ObjMove_GetY(obj);
+	let p1x = p0x + xb;
+	let p1y = p0y + yb;
+	let p2x = p0x + xc;
+	let p2y = p0y + yc;
+	let p3x = p0x + xd;
+	let p3y = p0y + yd;
+	
+	let cx;
+	let cy;
+	let t;
+	
+	let d = 1/time;
+	
+	while(Obj_Exists(obj) && time>0 && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_BEZIER_3){
+	
+		t = 1-(time*d);
+	
+		cx = (1-t)**3*p0x + 3*(1-t)**2*t*p1x + 2*(1-t)*(t**2)*p2x + t**3*p3x;
+		cy = (1-t)**3*p0y + 3*(1-t)**2*t*p1y + 2*(1-t)*(t**2)*p2y + t**3*p3y;
+		
+		ObjMove_SetPosition(obj, cx, cy);
+	
+		time-=1;
+		yield;
+	}
+	
+}
+
+task EPDL_MoveQuadratic_V(obj, h, k, vx){ //Parameter: Vertex point (h, k) and moving speed on x-axis
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_QUADRATIC_V);
+	ObjMove_SetSpeed(obj, 0);
+
+	let px = ObjMove_GetX(obj);
+	let py = ObjMove_GetY(obj);
+	
+	//Make the vertex position relative
+	h = px+h;
+	k = py+k;
+	
+	let a = (py-k)/(px-h)**2; //From generic parabolic conic section equation
+	let x = px;
+	let y;
+	
+	//let vx = rand(1,2);
+	if(h<px){
+		vx = -vx;
+	}
+	
+	WriteLog(Obj_GetValueInt(obj, VALUE_MOVETYPE), MOVETYPE_QUADRATIC_V);
+	
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_QUADRATIC_V){
+		x +=vx;
+		y = a*(x-h)**2+k;
+		ObjMove_SetPosition(obj,x,y);
+		//WriteLog(ToString(x)~" "~ToString(y));
+		yield;
+	}
+}
+
+task EPDL_MoveQuadratic_H(obj, h, k, vy){
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_QUADRATIC_H);
+	ObjMove_SetSpeed(obj, 0);
+	
+	let px = ObjMove_GetX(obj);
+	let py = ObjMove_GetY(obj);
+	
+	//Make the vertex position relative
+	h = px+h;
+	k = py+k;
+	
+	let a = (px-h)/(py-k)**2; //From generic parabolic conic section equation
+	let x;
+	let y = py;
+	
+	//let vx = rand(1,2);
+	if(k<py){
+		vy = -vy;
+	}
+	
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_QUADRATIC_H){
+		y +=vy;
+		x = a*(y-k)**2+h;
+		ObjMove_SetPosition(obj,x,y);
+		//WriteLog(ToString(x)~" "~ToString(y));
+		yield;
+	}
+}
+
+task EPDL_MoveTrajectory(obj, ux, uy, ax, ay, vx, vy){
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_TRAJECTORY);
+	
+	ObjMove_AddPatternB2(obj, 0, ux, uy, ax, ay, vx, vy);
+	
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_TRAJECTORY){
+		yield;
+	}
+	
+	ObjMove_SetSpeed(obj, 0);
+	ObjMove_SetAcceleration(obj, 0);
+	ObjMove_SetMaxSpeed(obj, 0);
+}
+
+task EPDL_MoveCircle(obj, phase, radius, angv){
+
+	let xshift = radius*cos(phase);
+	let yshift = radius*sin(phase);
+
+	let xcenter = ObjMove_GetX(obj)-xshift;
+	let ycenter = ObjMove_GetY(obj)-yshift;
+	
+	let r = radius;
+	let ang = phase;
+	let av = angv;
+	
+	Obj_SetValueInt(obj, VALUE_RADIUS, radius);
+	Obj_SetValueInt(obj, VALUE_ANGV, av); 
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_CIRCLE);
+	Obj_SetValueInt(obj, VALUE_XPOS, xcenter); 
+	Obj_SetValueInt(obj, VALUE_YPOS, ycenter);
+	
+	ObjMove_SetSpeed(obj, 0);
+	
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_CIRCLE){
+		r = Obj_GetValueInt(obj, VALUE_RADIUS);
+		av = Obj_GetValueInt(obj, VALUE_ANGV); 
+		
+		xcenter = Interpolate(IP_LINEAR, xcenter, Obj_GetValueInt(obj, VALUE_XPOS), 0.05);
+		ycenter = Interpolate(IP_LINEAR, ycenter, Obj_GetValueInt(obj, VALUE_YPOS), 0.05);
+		
+		ObjMove_SetPosition(obj, xcenter + r*cos(ang), ycenter + r*sin(ang));
+		
+		ang += av;
+		
+		//WriteLog("aa");
+		yield;
+	}
+	Obj_SetValueInt(obj, VALUE_RADIUS, 0);
+	Obj_SetValueInt(obj, VALUE_ANGV, 0); 
+	Obj_SetValueInt(obj, VALUE_XPOS, 0);
+	Obj_SetValueInt(obj, VALUE_YPOS, 0); 
+}
+
+task EPDL_SetRadius(obj, rad){
+	Obj_SetValueInt(obj, VALUE_RADIUS, rad);
+}
+
+task EPDL_SetAngularVelocity(obj, av){
+	Obj_SetValueInt(obj, VALUE_ANGV, av); 
+}
+
+task EPDL_SetCenterX(obj, x){
+	Obj_SetValueInt(obj, VALUE_XPOS, x); 
+}
+
+task EPDL_SetCenterY(obj, y){
+	Obj_SetValueInt(obj, VALUE_YPOS, y); 
+}
+
+task EPDL_MoveReflect(obj, speed, angle){
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_REFLECT);
+
+	ObjMove_SetSpeed(obj, speed);
+	ObjMove_SetAngle(obj, angle);
+	
+	let px;
+	let py;
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_REFLECT){
+		
+		px = ObjMove_GetX(obj);
+		py = ObjMove_GetY(obj);
+		
+		if(px<0 || px>384){
+			ObjMove_SetAngle(obj, 180-ObjMove_GetAngle(obj));
+		}
+		
+		if(py<0 || py>448){
+			ObjMove_SetAngle(obj, -ObjMove_GetAngle(obj));
+		}
+		yield;
+	}
+}
+
+task EPDL_MoveShake(obj, vy, intensity){
+
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_SHAKE);
+	ObjMove_SetSpeed(obj, 0);
+
+	let ox = ObjMove_GetX(obj);
+	let oy = ObjMove_GetY(obj);
+	
+	while(Obj_Exists(obj) && Obj_GetValueInt(obj, VALUE_MOVETYPE) == MOVETYPE_SHAKE){
+	
+		oy += vy;
+		
+		ObjMove_SetPosition(obj, ox+rand(-intensity, intensity), oy+rand(-intensity, intensity));
+	
+		yield;
+	}
+}
+
+task EPDL_StopMove(obj){
+	Obj_SetValueInt(obj, VALUE_MOVETYPE, MOVETYPE_NONE);
+	
+	ObjMove_SetSpeed(obj, 0);
+	ObjMove_SetAngle(obj, 0);
+}
+
+task EPDL_SetPosition(obj, x, y){
+	EPDL_StopMove(obj);
+	ObjMove_SetPosition(obj, x, y);
+}
+
+task EPDL_Shoot_Single(obj,speed, angle){
+	let s = CreateShotA1(ObjMove_GetX(obj), ObjMove_GetY(obj), speed, angle, 1, 0);
+	ObjRender_SetScaleXY(s, 0.5, 0.5);
+}
+
+task EPDL_Shoot_Ring(obj,speed, angle, count){
+	let s;
+
+	let dang = 360/count;
+	ascent(i in 0..count){
+		s = CreateShotA1(ObjMove_GetX(obj), ObjMove_GetY(obj), speed, angle+i*dang, 1, 0);
+		ObjRender_SetScaleXY(s, 0.5, 0.5);
+	}
+}
+
+//
