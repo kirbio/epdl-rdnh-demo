@@ -332,4 +332,5 @@ function VM_Execute(chunk, obj) {
 		}
 		//yield;
 	}
+	return VALUE_INVALID; //If the loop terminates early due to the object deleted
 }
