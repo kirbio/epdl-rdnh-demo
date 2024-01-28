@@ -1,0 +1,24 @@
+set_position(30, 0)
+
+let $vy = 3
+let $vx = 0.02
+
+let $axisX = 30
+
+let $phase = 0
+
+while($axisX<192){
+
+	set_position($axisX + 30 * cos($phase) , SELF_Y+$vy)
+	$phase = $phase + 12
+	
+	$axisX = $axisX+3
+	
+	wait(1)
+}
+
+move_circle(90, 40 , -8)
+
+wait(75)
+
+move_straight(4, 45);

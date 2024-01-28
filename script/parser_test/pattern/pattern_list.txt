@@ -1,2 +1,4 @@
+soldierblade_snake.epdl
+twinbee_manta.epdl
 geminiwing_dragonfly.epdl
 starforce_greenring.epdl

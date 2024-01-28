@@ -1,0 +1,19 @@
+set_position(30, 0)
+move_straight(3, 90)
+wait(75);
+
+move_circle(180, 162 , -1.5)
+
+wait(160)
+
+let $rad = 162
+let $angv = -1.5
+
+while($rad>81){
+	$rad = $rad-1
+	$angv = -1.5*162/$rad
+	
+	circ_setradius($rad)
+	circ_setangvelocity($angv)
+	wait(1);
+}
